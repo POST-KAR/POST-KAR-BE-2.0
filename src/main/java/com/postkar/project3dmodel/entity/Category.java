@@ -1,5 +1,6 @@
 package com.postkar.project3dmodel.entity;
 
+import com.mongodb.lang.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,8 @@ public class Category {
 
     private String name;
     private String description;
+
+    @Nullable
     private String imageUrl;
 }
 
