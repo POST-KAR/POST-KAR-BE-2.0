@@ -1,8 +1,6 @@
 package com.postkar.project3dmodel.controller;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -12,21 +10,34 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.postkar.project3dmodel.entity.User;
-import com.postkar.project3dmodel.repository.UserRepository;
-import com.postkar.project3dmodel.security.JwtTokenProvider;
 import com.postkar.project3dmodel.service.OAuthService;
+import com.postkar.project3dmodel.service.OAuthServiceFactory;
 
 @RestController
 @RequestMapping("/api/oauth")
 public class OAuthController {
 
     @Autowired
-    private OAuthService oAuthService;
+    private OAuthServiceFactory oAuthServiceFactory;
 
     @GetMapping("/success")
-    public ResponseEntity<?> handleOAuthSuccess(@AuthenticationPrincipal OAuth2User oAuth2User) {
-        return ResponseEntity.ok(oAuthService.processOAuthUser(oAuth2User));
+    public ResponseEntity<Map<String, String>> handleOAuthSuccess(@AuthenticationPrincipal OAuth2User oAuth2User) {
+        try {
+            OAuthService oAuthService = oAuthServiceFactory.getOAuthService(oAuth2User);
+
+            Map<String, String> tokens = oAuthService.processOAuthUser(oAuth2User);
+
+            return ResponseEntity.ok(tokens);
+        } catch (Exception e) {
+            throw new RuntimeException("OAuth processing failed: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/user-info")
+    public ResponseEntity<Map<String, Object>> getUserInfo(@AuthenticationPrincipal OAuth2User oAuth2User) {
+        if (oAuth2User == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(oAuth2User.getAttributes());
     }
 }
-

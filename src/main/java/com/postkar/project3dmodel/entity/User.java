@@ -10,7 +10,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 
 @Data
 @NoArgsConstructor
@@ -32,10 +31,11 @@ public class User {
     private String otp;
     private LocalDateTime otpGeneratedAt;
 
-    private String provider; // LOCAL / GOOGLE
+    private String provider; // LOCAL, GOOGLE, FACEBOOK
+    private String providerId;
 
     private String jwtToken;
     private String refreshToken;
 
-    private LocalDateTime refreshTokenExpiry; // Optional
+    private LocalDateTime refreshTokenExpiry;
 }
