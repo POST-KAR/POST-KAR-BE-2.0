@@ -2,11 +2,11 @@ package com.postkar.project3dmodel.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -58,18 +58,16 @@ public class AuthService {
         user.setOtpGeneratedAt(LocalDateTime.now());
 
         userRepo.save(user);
-        emailService.sendOtp(user.getEmail(), otp);
+        emailService.sendOtpAsync(user.getEmail(), otp);
     }
 
     public void verifyEmail(EmailVerificationRequest req) {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Before OTP match check
         if (user.getOtpGeneratedAt().plusMinutes(10).isBefore(LocalDateTime.now())) {
             throw new RuntimeException("OTP expired");
         }
-
 
         if (!user.getOtp().equals(req.getOtp())) {
             throw new RuntimeException("Invalid OTP");
@@ -81,7 +79,7 @@ public class AuthService {
         userRepo.save(user);
     }
 
-    public Map<String, String> login(LoginRequest req) {
+    public Map<String, Object> login(LoginRequest req) {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -100,12 +98,12 @@ public class AuthService {
         user.setRefreshToken(refreshToken);
         userRepo.save(user);
 
-        Map<String, String> tokens = new HashMap<>();
-        tokens.put("accessToken", accessToken);
-        tokens.put("refreshToken", refreshToken);
-        return tokens;
+        Map<String, Object> response = new HashMap<>();
+        response.put("accessToken", accessToken);
+        response.put("refreshToken", refreshToken);
+        response.put("user", Map.of("email", user.getEmail(), "name", user.getName()));
+        return response;
     }
-
 
     public void resendOtp(String email) {
         User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
@@ -113,15 +111,13 @@ public class AuthService {
         if (user.isEmailVerified()) throw new RuntimeException("Email already verified");
 
         if (user.getOtpGeneratedAt().plusMinutes(10).isAfter(LocalDateTime.now())) {
-            // Reuse OTP
-            emailService.sendOtp(email, user.getOtp());
+            emailService.sendOtpAsync(email, user.getOtp());
         } else {
-            // Regenerate OTP
             String newOtp = OTPUtil.generateOTP();
             user.setOtp(newOtp);
             user.setOtpGeneratedAt(LocalDateTime.now());
             userRepo.save(user);
-            emailService.sendOtp(email, newOtp);
+            emailService.sendOtpAsync(email, newOtp);
         }
     }
 
@@ -138,5 +134,4 @@ public class AuthService {
         userRepo.save(user);
         return newAccessToken;
     }
-
 }

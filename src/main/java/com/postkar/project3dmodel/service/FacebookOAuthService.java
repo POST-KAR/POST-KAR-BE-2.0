@@ -3,6 +3,8 @@ package com.postkar.project3dmodel.service;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,8 @@ import com.postkar.project3dmodel.security.JwtTokenProvider;
 
 @Service
 public class FacebookOAuthService implements OAuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(FacebookOAuthService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -27,16 +31,20 @@ public class FacebookOAuthService implements OAuthService {
         String facebookId = oAuth2User.getAttribute("id");
 
         if (email == null || email.isEmpty()) {
+            logger.error("Email not provided by Facebook for user ID: {}", facebookId);
             throw new RuntimeException("Email not provided by Facebook. Please ensure email permission is granted.");
         }
+
+        logger.debug("Processing Facebook OAuth user: {}", email);
 
         User user = userRepository.findByEmail(email)
                 .orElseGet(() -> {
                     User newUser = new User();
                     newUser.setEmail(email);
-                    newUser.setName(name);
+                    newUser.setName(name != null ? name : "Unknown");
                     newUser.setEmailVerified(true);
                     newUser.setProvider("FACEBOOK");
+                    logger.info("Creating new user with email: {}", email);
                     return userRepository.save(newUser);
                 });
 
@@ -46,6 +54,8 @@ public class FacebookOAuthService implements OAuthService {
         user.setJwtToken(accessToken);
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
+
+        logger.info("Generated tokens for user: {}", email);
 
         Map<String, String> tokens = new HashMap<>();
         tokens.put("accessToken", accessToken);

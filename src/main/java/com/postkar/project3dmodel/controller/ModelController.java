@@ -3,10 +3,11 @@ package com.postkar.project3dmodel.controller;
 import com.postkar.project3dmodel.entity.Model;
 import com.postkar.project3dmodel.service.ModelService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -17,30 +18,24 @@ public class ModelController {
     private ModelService modelService;
 
     @GetMapping
-    public List<Model> getByCategory(@RequestParam String categoryId) {
-        return modelService.getModelsByCategory(categoryId);
+    public ResponseEntity<Page<Model>> getByCategory(@RequestParam String categoryId, Pageable pageable) {
+        return ResponseEntity.ok(modelService.getModelsByCategory(categoryId, pageable));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Model> getById(@PathVariable String id) {
         Optional<Model> optionalModel = modelService.getById(id);
-
-        if (optionalModel.isPresent()) {
-            Model model = optionalModel.get();
-            return ResponseEntity.ok(model);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+        return optionalModel.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/all-models")
-    public List<Model> getAllModels(){
-        return modelService.getAllModels();
+    public ResponseEntity<Page<Model>> getAllModels(Pageable pageable) {
+        return ResponseEntity.ok(modelService.getAllModels(pageable));
     }
 
-//    @PostMapping("/upload")
-//    public ResponseEntity<Model> upload(@RequestBody Model model) {
-//        return ResponseEntity.ok(modelService.saveModel(model));
-//    }
+    @PostMapping("/upload")
+    public ResponseEntity<Model> upload(@RequestBody Model model) {
+        return ResponseEntity.ok(modelService.saveModel(model));
+    }
 }
-

@@ -25,18 +25,20 @@ public class GoogleOAuthService implements OAuthService {
         String email = oAuth2User.getAttribute("email");
         String name = oAuth2User.getAttribute("name");
 
-        // Check if user exists
+        if (email == null) {
+            throw new RuntimeException("Email not provided by OAuth provider");
+        }
+
         User user = userRepository.findByEmail(email)
                 .orElseGet(() -> {
                     User newUser = new User();
                     newUser.setEmail(email);
-                    newUser.setName(name);
+                    newUser.setName(name != null ? name : "Unknown");
                     newUser.setEmailVerified(true);
                     newUser.setProvider("GOOGLE");
                     return userRepository.save(newUser);
                 });
 
-        // Generate Tokens
         String accessToken = jwtTokenProvider.generateAccessToken(email);
         String refreshToken = jwtTokenProvider.generateRefreshToken(email);
 
