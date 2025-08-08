@@ -17,8 +17,12 @@ public class JwtTokenProvider {
 
     private SecretKey key;
 
-    private final long accessTokenValidity = 60 * 1000;          // 1 hour
-    private final long refreshTokenValidity = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    @Value("${app.jwt.access-token-validity}")
+    private long accessTokenValidity;
+
+    @Value("${app.jwt.refresh-token-validity}")
+    private long refreshTokenValidity;
 
     @PostConstruct
     public void init() {
