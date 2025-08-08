@@ -20,6 +20,7 @@ import com.postkar.project3dmodel.entity.User;
 import com.postkar.project3dmodel.repository.UserRepository;
 import com.postkar.project3dmodel.security.JwtTokenProvider;
 import com.postkar.project3dmodel.util.OTPUtil;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
@@ -39,6 +40,7 @@ public class AuthService {
     @Autowired
     private AuthenticationManager authenticationManager;
 
+    @Transactional
     public void register(SignupRequest req) {
         if (userRepo.findByEmail(req.getEmail()).isPresent()) {
             throw new RuntimeException("Email already registered");
