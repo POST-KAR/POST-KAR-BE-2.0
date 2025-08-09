@@ -8,7 +8,9 @@ import com.postkar.project3dmodel.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,11 +28,22 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    private static final Logger log = (Logger) LoggerFactory.getLogger(AuthController.class);
+
     @Operation(summary = "User Signup", description = "Register a new user in the system")
     @PostMapping("/signup")
     public ResponseEntity<String> signup(@RequestBody SignupRequest req) {
-        authService.register(req);
-        return ResponseEntity.ok("OTP sent to your email");
+        log.info("Signup request received for email: {}", req.getEmail());
+
+        try {
+            authService.register(req);
+            log.info("Registration successful for email: {}", req.getEmail());
+            return ResponseEntity.ok("OTP sent to your email");
+        } catch (Exception e) {
+            log.error("Signup failed for email: {} with error: {}", req.getEmail(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Signup failed: " + e.getMessage());
+        }
     }
 
     @Operation(summary = "Verify Email OTP", description = "Verify user's email with the provided OTP")
