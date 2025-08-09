@@ -28,19 +28,22 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    private static final Logger log = (Logger) LoggerFactory.getLogger(AuthController.class);
-
     @Operation(summary = "User Signup", description = "Register a new user in the system")
     @PostMapping("/signup")
     public ResponseEntity<String> signup(@RequestBody SignupRequest req) {
-        log.info("Signup request received for email: {}", req.getEmail());
+        System.out.println("=== SIGNUP REQUEST STARTED ===");
+        System.out.println("Signup request received for email: " + req.getEmail());
 
         try {
+            System.out.println("Calling authService.register()...");
             authService.register(req);
-            log.info("Registration successful for email: {}", req.getEmail());
+            System.out.println("Registration successful for email: " + req.getEmail());
+            System.out.println("=== SIGNUP REQUEST SUCCESSFUL ===");
             return ResponseEntity.ok("OTP sent to your email");
         } catch (Exception e) {
-            log.error("Signup failed for email: {} with error: {}", req.getEmail(), e.getMessage(), e);
+            System.err.println("=== SIGNUP REQUEST FAILED ===");
+            System.err.println("Signup failed for email: " + req.getEmail() + " with error: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Signup failed: " + e.getMessage());
         }
