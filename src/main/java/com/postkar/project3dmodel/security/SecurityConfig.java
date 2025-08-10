@@ -40,7 +40,6 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
-                        // ✅ Fixed patterns - removed invalid /**/pattern/**
                         .requestMatchers("/auth/**", "/api/auth/**", "/login.html", "/").permitAll()
                         .requestMatchers("/oauth/**", "/api/oauth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**", "/login/oauth2/code/**").permitAll()
