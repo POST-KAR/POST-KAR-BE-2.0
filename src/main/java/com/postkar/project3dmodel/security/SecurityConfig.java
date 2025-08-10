@@ -40,13 +40,15 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
-                        .requestMatchers("/**/auth/**").permitAll()
-                        .requestMatchers("/**/oauth/**").permitAll()
+                        // ✅ Fixed patterns - removed invalid /**/pattern/**
+                        .requestMatchers("/auth/**", "/api/auth/**", "/login.html", "/").permitAll()
+                        .requestMatchers("/oauth/**", "/api/oauth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**", "/login/oauth2/code/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
                         .defaultSuccessUrl("/api/oauth/success", true)
+                        .loginPage("/login.html")
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, ex) -> {
