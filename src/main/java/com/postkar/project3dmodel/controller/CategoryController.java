@@ -20,7 +20,17 @@ public class CategoryController {
     @Autowired
     private CategoryService categoryService;
 
-    @Operation(summary = "Get All Categories", description = "Fetch all available categories")
+    @Operation(summary = "Get All Categories", description = "Fetch all available categories " +
+           "Example:- " + "{\n" +
+            "  \"page\": 0,\n" +
+            "  \"size\": 10,\n" +
+            "  \"sort\": [\"name,ASC\", \"createdAt,DESC\"]\n" +
+            "}\n" + "page: Which page to retrieve (0 means first page).\n" +
+            "\n" +
+            "size: 10 categories per page.\n" +
+            "\n" +
+            "sort: Sort first by name in ascending order. If names are the same, sort by createdAt in descending order." +
+            "\n")
     @GetMapping
     public ResponseEntity<Page<Category>> getAll(Pageable pageable) {
         return ResponseEntity.ok(categoryService.getAllCategories(pageable));

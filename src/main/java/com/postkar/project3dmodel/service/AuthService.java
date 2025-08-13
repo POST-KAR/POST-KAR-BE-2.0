@@ -5,28 +5,28 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.postkar.project3dmodel.response.RegistrationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import com.postkar.project3dmodel.dto.EmailVerificationRequest;
-import com.postkar.project3dmodel.dto.LoginRequest;
-import com.postkar.project3dmodel.dto.RefreshTokenRequest;
-import com.postkar.project3dmodel.dto.SignupRequest;
+import com.postkar.project3dmodel.dto.*;
+import com.postkar.project3dmodel.entity.TempRegistration;
 import com.postkar.project3dmodel.entity.User;
+import com.postkar.project3dmodel.repository.TempRegistrationRepository;
 import com.postkar.project3dmodel.repository.UserRepository;
 import com.postkar.project3dmodel.security.JwtTokenProvider;
 import com.postkar.project3dmodel.util.OTPUtil;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
 
     @Autowired
     private UserRepository userRepo;
+
+    @Autowired
+    private TempRegistrationRepository tempRegRepo;
 
     @Autowired
     private PasswordEncoder encoder;
@@ -37,56 +37,151 @@ public class AuthService {
     @Autowired
     private JwtTokenProvider jwtProvider;
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-
+    // Window 1: Send OTP to Email
     @Transactional
-    public void register(SignupRequest req) {
-        if (userRepo.findByEmail(req.getEmail()).isPresent()) {
+    public RegistrationResponse sendOtpToEmail(EmailRequest req) {
+        String email = req.getEmail();
+
+        if (userRepo.findByEmail(email).isPresent()) {
             throw new RuntimeException("Email already registered");
         }
 
-        User user = new User();
-        user.setName(req.getName());
-        user.setEmail(req.getEmail());
-        user.setPassword(encoder.encode(req.getPassword()));
-        user.setPhoneNumber(req.getPhoneNumber());
-        user.setDateOfBirth(LocalDate.parse(req.getDob()));
-        user.setProvider("LOCAL");
-        user.setEmailVerified(false);
+        tempRegRepo.deleteByEmail(email);
 
-        String otp = OTPUtil.generateOTP();
-        user.setOtp(otp);
-        user.setOtpGeneratedAt(LocalDateTime.now());
+        TempRegistration tempReg = new TempRegistration();
+        tempReg.setEmail(email);
+        tempReg.setOtp(OTPUtil.generateOTP());
+        tempReg.setOtpGeneratedAt(LocalDateTime.now());
+        tempReg.setEmailVerified(false);
+        tempReg.setStatus(TempRegistration.Status.EMAIL_SENT);
+        tempReg.setCreatedAt(LocalDateTime.now());
+        tempReg.setExpiresAt(LocalDateTime.now().plusHours(24)); // 24-hour expiry
 
-        userRepo.save(user);
-        emailService.sendOtpAsync(user.getEmail(), otp);
+        tempRegRepo.save(tempReg);
+        emailService.sendOtpAsync(email, tempReg.getOtp());
+
+        return new RegistrationResponse("OTP sent to your email", email, true);
     }
 
-    public void verifyEmail(EmailVerificationRequest req) {
-        User user = userRepo.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    // Window 2: Verify OTP
+    @Transactional
+    public RegistrationResponse verifyOTP(OTPVerificationRequest req) {
+        TempRegistration tempReg = tempRegRepo.findByEmail(req.getEmail())
+                .orElseThrow(() -> new RuntimeException("Registration not found. Please start again."));
 
-        if (user.getOtpGeneratedAt().plusMinutes(10).isBefore(LocalDateTime.now())) {
+        if (tempReg.getOtpGeneratedAt().plusMinutes(10).isBefore(LocalDateTime.now())) {
             throw new RuntimeException("OTP expired");
         }
 
-        if (!user.getOtp().equals(req.getOtp())) {
+        if (!tempReg.getOtp().equals(req.getOtp())) {
             throw new RuntimeException("Invalid OTP");
         }
 
-        user.setEmailVerified(true);
-        user.setOtp(null);
-        user.setOtpGeneratedAt(null);
-        userRepo.save(user);
+        tempReg.setEmailVerified(true);
+        tempReg.setStatus(TempRegistration.Status.EMAIL_VERIFIED);
+        tempReg.setOtp(null); // Clear OTP for security
+        tempReg.setOtpGeneratedAt(null);
+        tempRegRepo.save(tempReg);
+
+        return new RegistrationResponse("Email verified successfully", req.getEmail(), true);
     }
 
+    // Window 2: Resend OTP
+    @Transactional
+    public RegistrationResponse resendOtp(EmailRequest req) {
+        TempRegistration tempReg = tempRegRepo.findByEmail(req.getEmail())
+                .orElseThrow(() -> new RuntimeException("Registration not found. Please start again."));
+
+        if (tempReg.isEmailVerified()) {
+            throw new RuntimeException("Email already verified");
+        }
+
+        if (tempReg.getOtpGeneratedAt().plusMinutes(10).isBefore(LocalDateTime.now())) {
+            String newOtp = OTPUtil.generateOTP();
+            tempReg.setOtp(newOtp);
+            tempReg.setOtpGeneratedAt(LocalDateTime.now());
+            tempRegRepo.save(tempReg);
+            emailService.sendOtpAsync(req.getEmail(), newOtp);
+        } else {
+            emailService.sendOtpAsync(req.getEmail(), tempReg.getOtp());
+        }
+
+        return new RegistrationResponse("OTP resent to your email", req.getEmail(), true);
+    }
+
+    // Window 3: Set Credentials
+    @Transactional
+    public RegistrationResponse setCredentials(CredentialsRequest req) {
+        TempRegistration tempReg = tempRegRepo.findByEmail(req.getEmail())
+                .orElseThrow(() -> new RuntimeException("Registration not found. Please start again."));
+
+        if (!tempReg.isEmailVerified()) {
+            throw new RuntimeException("Email not verified. Please verify your email first.");
+        }
+
+        if (userRepo.existsByEmail(req.getEmail())) {
+            throw new RuntimeException("Email already registered");
+        }
+
+        if (userRepo.existsByUsername(req.getUsername())) {
+            throw new RuntimeException("Username already taken");
+        }
+
+        tempReg.setUsername(req.getUsername());
+        tempReg.setPassword(encoder.encode(req.getPassword()));
+        tempReg.setStatus(TempRegistration.Status.CREDENTIALS_SET);
+        tempRegRepo.save(tempReg);
+
+        return new RegistrationResponse("Credentials set successfully", req.getEmail(), true);
+    }
+
+    // Window 4: Set Info
+    @Transactional
+    public RegistrationResponse setInfo(PersonalInfoRequest req) {
+        TempRegistration tempReg = tempRegRepo.findByEmail(req.getEmail())
+                .orElseThrow(() -> new RuntimeException("Registration not found. Please start again."));
+
+        if (tempReg.getStatus() != TempRegistration.Status.CREDENTIALS_SET) {
+            throw new RuntimeException("Please complete previous steps first");
+        }
+
+        User user = new User();
+        user.setEmail(tempReg.getEmail());
+        user.setUsername(tempReg.getUsername());
+        user.setPassword(tempReg.getPassword()); // Already encoded
+        user.setName(req.getName());
+        user.setPhoneNumber(req.getPhoneNumber());
+
+        if (req.getDob() != null && !req.getDob().isEmpty()) {
+            user.setDateOfBirth(LocalDate.parse(req.getDob()));
+        }
+
+        user.setEmailVerified(true);
+        user.setCredentialsSet(true);
+        user.setProfileCompleted(true);
+        user.setProvider("LOCAL");
+        user.setRegistrationStatus(User.RegistrationStatus.COMPLETED);
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+
+        userRepo.save(user);
+
+        tempRegRepo.deleteByEmail(req.getEmail());
+
+        return new RegistrationResponse("Registration completed successfully", req.getEmail(), true);
+    }
+
+    // Login method
     public Map<String, Object> login(LoginRequest req) {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (!user.isEmailVerified()) {
             throw new RuntimeException("Email not verified");
+        }
+
+        if (user.getRegistrationStatus() != User.RegistrationStatus.COMPLETED) {
+            throw new RuntimeException("Please complete your registration");
         }
 
         if (!encoder.matches(req.getPassword(), user.getPassword())) {
@@ -98,42 +193,39 @@ public class AuthService {
 
         user.setJwtToken(accessToken);
         user.setRefreshToken(refreshToken);
+        user.setUpdatedAt(LocalDateTime.now());
         userRepo.save(user);
 
         Map<String, Object> response = new HashMap<>();
         response.put("accessToken", accessToken);
         response.put("refreshToken", refreshToken);
-        response.put("user", Map.of("email", user.getEmail(), "name", user.getName()));
+        response.put("user", Map.of(
+                "email", user.getEmail(),
+                "name", user.getName(),
+                "username", user.getUsername()
+        ));
         return response;
     }
 
-    public void resendOtp(String email) {
-        User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (user.isEmailVerified()) throw new RuntimeException("Email already verified");
-
-        if (user.getOtpGeneratedAt().plusMinutes(10).isAfter(LocalDateTime.now())) {
-            emailService.sendOtpAsync(email, user.getOtp());
-        } else {
-            String newOtp = OTPUtil.generateOTP();
-            user.setOtp(newOtp);
-            user.setOtpGeneratedAt(LocalDateTime.now());
-            userRepo.save(user);
-            emailService.sendOtpAsync(email, newOtp);
-        }
-    }
-
+    // Refresh access token method
     public String refreshToken(RefreshTokenRequest req) {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!jwtProvider.validateToken(req.getRefreshToken()) || !req.getRefreshToken().equals(user.getRefreshToken())) {
+        if (!jwtProvider.validateToken(req.getRefreshToken()) ||
+                !req.getRefreshToken().equals(user.getRefreshToken())) {
             throw new RuntimeException("Invalid refresh token");
         }
 
         String newAccessToken = jwtProvider.generateAccessToken(user.getEmail());
         user.setJwtToken(newAccessToken);
+        user.setUpdatedAt(LocalDateTime.now());
         userRepo.save(user);
         return newAccessToken;
+    }
+
+    @Transactional
+    public void cleanupExpiredRegistrations() {
+        tempRegRepo.deleteByExpiresAtBefore(LocalDateTime.now());
     }
 }

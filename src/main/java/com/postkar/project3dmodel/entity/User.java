@@ -23,12 +23,15 @@ public class User {
 
     private String name;
     private String email;
+    private String username;
     private String password;
     private String phoneNumber;
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate dateOfBirth;
 
     private boolean emailVerified;
+    private boolean credentialsSet;
+    private boolean profileCompleted;
 
     private String otp;
     private LocalDateTime otpGeneratedAt;
@@ -38,6 +41,17 @@ public class User {
 
     private String jwtToken;
     private String refreshToken;
-
     private LocalDateTime refreshTokenExpiry;
+
+    // Registration status enum
+    public enum RegistrationStatus {
+        EMAIL_PENDING,
+        EMAIL_VERIFIED,
+        CREDENTIALS_SET,
+        COMPLETED
+    }
+
+    private RegistrationStatus registrationStatus;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

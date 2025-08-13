@@ -40,9 +40,9 @@ public class ModelController {
         return ResponseEntity.ok(modelService.getAllModels(pageable));
     }
 
-    @PostMapping("/upload")
-    @Operation(summary = "Upload a model/design", description = "Upload model/designs. Completely optional for now")
-    public ResponseEntity<Model> upload(@RequestBody Model model) {
-        return ResponseEntity.ok(modelService.saveModel(model));
-    }
+//    @PostMapping("/upload")
+//    @Operation(summary = "Upload a model/design", description = "Upload model/designs. Completely optional for now")
+//    public ResponseEntity<Model> upload(@RequestBody Model model) {
+//        return ResponseEntity.ok(modelService.saveModel(model));
+//    }
 }

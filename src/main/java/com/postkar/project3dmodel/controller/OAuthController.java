@@ -23,7 +23,9 @@ public class OAuthController {
 
     @Operation(
             summary = "Handle OAuth2 Login Success",
-            description = "Processes a successful OAuth2 authentication for Google or Facebook and returns user details or tokens."
+            description = "Processes a successful OAuth2 authentication for Google or Facebook and returns user details or tokens. "+
+            " 1. GET /oauth2/authorization/google - Google OAuth " +
+            " 2. GET /oauth2/authorization/facebook - Facebook OAuth "
     )
     @GetMapping("/success")
     public Map<String, String> handleOAuthSuccess(@AuthenticationPrincipal OAuth2User oAuth2User) {
