@@ -18,7 +18,7 @@ public class DetectionReportRequest {
     private LocalDateTime detectionTime;
 
     private String appVersion;
-    private String platform; // "android" or "ios"
+    private String platform;
     private Double detectionDistance;
     private Integer detectionDurationMs;
     private String videoId;

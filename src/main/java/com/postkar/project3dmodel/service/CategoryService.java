@@ -36,17 +36,14 @@ public class CategoryService {
                 .collect(Collectors.toList());
     }
 
-    // Get paginated categories
     public Page<Category> getAllCategories(Pageable pageable) {
         return categoryRepository.findAll(pageable);
     }
 
-    // Get category by ID
     public Optional<Category> getCategoryById(String categoryId) {
         return categoryRepository.findById(categoryId);
     }
 
-    // Get category with all its markers
     public Optional<CategoryWithMarkersResponse> getCategoryWithMarkers(String categoryId) {
         Optional<Category> categoryOpt = categoryRepository.findById(categoryId);
         
@@ -70,12 +67,10 @@ public class CategoryService {
         return Optional.empty();
     }
 
-    // Create new category
     public Category createCategory(Category category) {
         return categoryRepository.save(category);
     }
 
-    // Update category
     public Optional<Category> updateCategory(String categoryId, Category categoryUpdate) {
         return categoryRepository.findById(categoryId)
                 .map(existingCategory -> {
@@ -85,7 +80,6 @@ public class CategoryService {
                 });
     }
 
-    // Delete category
     public boolean deleteCategory(String categoryId) {
         if (categoryRepository.existsById(categoryId)) {
             categoryRepository.deleteById(categoryId);
@@ -94,7 +88,6 @@ public class CategoryService {
         return false;
     }
 
-    // Helper method to convert Category to CategoryResponse with marker count
     private CategoryResponse convertToCategoryResponse(Category category) {
         CategoryResponse response = new CategoryResponse();
         response.setId(category.getId());
@@ -108,7 +101,6 @@ public class CategoryService {
         return response;
     }
 
-    // Helper method to convert Marker to MarkerSummaryResponse
     private MarkerSummaryResponse convertToMarkerSummary(Marker marker) {
         MarkerSummaryResponse response = new MarkerSummaryResponse();
         response.setId(marker.getId());

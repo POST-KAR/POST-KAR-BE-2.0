@@ -47,7 +47,6 @@ public class MarkerController {
         if (versionOpt.isPresent()) {
             MarkerVersion version = versionOpt.get();
 
-            // Get database info
             return arDatabaseService.getCurrentDatabase()
                     .map(db -> {
                         MarkerVersionResponse response = new MarkerVersionResponse();

@@ -167,7 +167,6 @@ public class AuthController {
         }
     }
 
-    // Existing Refresh Token endpoint
     @Operation(summary = "Refresh Token",
             description = "Generate new access token using refresh token")
     @SecurityRequirement(name = "bearerAuth")

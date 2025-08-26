@@ -76,20 +76,17 @@ public class AdminController {
             @RequestParam(required = false) MultipartFile video
     ) {
         try {
-            // Check if at least one file is provided
             if (markerImage == null && thumbnail == null && video == null) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "At least one file must be provided"));
             }
 
-            // Check if service is properly configured
             if (!fileUploadService.isConfigured()) {
                 logger.error("FileUploadService is not properly configured");
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                         .body(Map.of("error", "File upload service is not configured"));
             }
 
-            // Get category name for path organization
             String categoryName = "uncategorized";
             if (categoryId != null && !categoryId.trim().isEmpty()) {
                 var categoryOpt = categoryService.getCategoryById(categoryId.trim());
@@ -104,7 +101,6 @@ public class AdminController {
             UploadResponse response = new UploadResponse();
             Map<String, String> errors = new HashMap<>();
 
-            // Upload marker image using category-based path
             if (markerImage != null) {
                 try {
                     String url = fileUploadService.uploadFileByCategory(markerImage, categoryName, "markers");
@@ -116,7 +112,6 @@ public class AdminController {
                 }
             }
 
-            // Upload thumbnail using category-based path
             if (thumbnail != null) {
                 try {
                     String url = fileUploadService.uploadFileByCategory(thumbnail, categoryName, "thumbnails");
@@ -128,7 +123,6 @@ public class AdminController {
                 }
             }
 
-            // Upload video using category-based path
             if (video != null) {
                 try {
                     String url = fileUploadService.uploadFileByCategory(video, categoryName, "videos");
@@ -140,7 +134,6 @@ public class AdminController {
                 }
             }
 
-            // Return response with any errors
             if (!errors.isEmpty()) {
                 Map<String, Object> responseWithErrors = new HashMap<>();
                 responseWithErrors.put("uploads", response);
@@ -172,7 +165,6 @@ public class AdminController {
             @Valid @RequestBody MarkerCreateRequest request
     ) {
         try {
-            // Validate request
             if (request.getMarkerId() == null || request.getMarkerId().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "Marker ID is required"));
@@ -183,7 +175,6 @@ public class AdminController {
                         .body(Map.of("error", "Marker with ID '" + request.getMarkerId() + "' already exists"));
             }
 
-            // Validate required URLs
             if (request.getMarkerImageUrl() == null || request.getMarkerImageUrl().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "Marker image URL is required"));
@@ -194,7 +185,6 @@ public class AdminController {
                         .body(Map.of("error", "Video URL is required"));
             }
 
-            // Create marker entity
             Marker marker = new Marker();
             marker.setMarkerId(request.getMarkerId().trim());
             marker.setName(request.getName() != null ? request.getName().trim() : request.getMarkerId());
@@ -207,7 +197,6 @@ public class AdminController {
             marker.setCategoryId(request.getCategoryId());
             marker.setActive(true);
 
-            // Create video
             Video video = new Video();
             video.setId(request.getMarkerId() + "-v1");
             video.setName(request.getVideoName() != null ? request.getVideoName().trim() : "Default Video");
@@ -219,7 +208,6 @@ public class AdminController {
             marker.setVideos(Collections.singletonList(video));
             marker.setActiveVideoId(video.getId());
 
-            // Save marker (this will trigger database rebuild)
             Marker savedMarker = markerService.saveMarker(marker);
             logger.info("Created new marker: {}", savedMarker.getMarkerId());
 
@@ -260,7 +248,6 @@ public class AdminController {
             Marker marker = markerOpt.get();
             boolean hasChanges = false;
 
-            // Update fields if provided
             if (request.getName() != null && !request.getName().trim().isEmpty()) {
                 marker.setName(request.getName().trim());
                 hasChanges = true;
@@ -270,7 +257,6 @@ public class AdminController {
                 hasChanges = true;
             }
             if (request.getActiveVideoId() != null && !request.getActiveVideoId().trim().isEmpty()) {
-                // Validate that the video ID exists in marker's videos
                 boolean videoExists = marker.getVideos() != null &&
                         marker.getVideos().stream()
                                 .anyMatch(v -> v.getId().equals(request.getActiveVideoId()));
@@ -385,7 +371,6 @@ public class AdminController {
     @GetMapping("/database-builds")
     public ResponseEntity<?> getAllDatabaseBuilds() {
         try {
-            // This would need to be implemented in ArDatabaseService
             return ResponseEntity.ok()
                     .body(Map.of("message", "Feature not implemented yet"));
 

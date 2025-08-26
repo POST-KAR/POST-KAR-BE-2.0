@@ -9,15 +9,11 @@ import java.util.Optional;
 
 @Repository
 public interface ArDatabaseRepository extends MongoRepository<ArDatabase, String> {
-    // Find the currently active database
     Optional<ArDatabase> findByIsActiveTrue();
 
-    // Find by version
     Optional<ArDatabase> findByVersion(String version);
 
-    // Find databases ready for use
     List<ArDatabase> findByBuildStatusOrderByCreatedAtDesc(String buildStatus);
 
-    // Find latest databases
     List<ArDatabase> findTop5ByOrderByCreatedAtDesc();
 }

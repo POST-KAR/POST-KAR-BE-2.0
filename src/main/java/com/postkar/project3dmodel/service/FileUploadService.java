@@ -49,7 +49,6 @@ public class FileUploadService {
 
     private S3Client s3Client;
 
-    // Allowed file types
     private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList(
             "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"
     );
@@ -57,7 +56,6 @@ public class FileUploadService {
             "video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo"
     );
 
-    // Download settings
     private static final int DOWNLOAD_TIMEOUT_SECONDS = 30;
     private static final int MAX_DOWNLOAD_RETRIES = 3;
     private static final long RETRY_DELAY_MS = 1000;
@@ -79,22 +77,17 @@ public class FileUploadService {
         }
     }
 
-    /**
-     * Upload MultipartFile to S3
-     */
+
     public String uploadFile(MultipartFile file, String folder) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be empty");
         }
 
-        // Validate file type
         validateFileType(file, folder);
 
-        // Generate unique key
         String key = generateFileKey(file.getOriginalFilename(), folder);
 
         try {
-            // Create PutObject request with metadata
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
@@ -107,7 +100,6 @@ public class FileUploadService {
                     ))
                     .build();
 
-            // Upload file
             PutObjectResponse response = s3Client.putObject(putObjectRequest,
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
@@ -121,23 +113,19 @@ public class FileUploadService {
         }
     }
 
-    /**
-     * Upload MultipartFile to S3 with category-based path structure
-     * Format: {categoryName}/{fileType}/{filename}
-     */
+
     public String uploadFileByCategory(MultipartFile file, String categoryName, String fileType) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be empty");
         }
 
-        // Validate file type based on fileType parameter
+
         validateFileTypeByCategory(file, fileType);
 
-        // Generate category-based key
+
         String key = generateCategoryBasedFileKey(file.getOriginalFilename(), categoryName, fileType);
 
         try {
-            // Create PutObject request with metadata
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
@@ -151,7 +139,6 @@ public class FileUploadService {
                     ))
                     .build();
 
-            // Upload file
             PutObjectResponse response = s3Client.putObject(putObjectRequest,
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
@@ -165,16 +152,13 @@ public class FileUploadService {
         }
     }
 
-    /**
-     * Upload File object to S3 (for internal use)
-     */
+
     public String uploadFile(File file, String s3Key) throws IOException {
         if (file == null || !file.exists()) {
             throw new IllegalArgumentException("File does not exist: " + file);
         }
 
         try {
-            // Detect content type
             String contentType = Files.probeContentType(file.toPath());
             if (contentType == null) {
                 contentType = "application/octet-stream";
@@ -200,9 +184,6 @@ public class FileUploadService {
         }
     }
 
-    /**
-     * Enhanced download file from S3 to local file with retry mechanism and validation
-     */
     public void downloadFile(String fileUrl, File destinationFile) throws IOException {
         String key = extractKeyFromUrl(fileUrl);
         if (key == null) {
@@ -215,7 +196,6 @@ public class FileUploadService {
             try {
                 logger.info("Downloading file (attempt {}): {} -> {}", attempt, fileUrl, destinationFile.getAbsolutePath());
 
-                // Create parent directories if they don't exist
                 File parentDir = destinationFile.getParentFile();
                 if (parentDir != null && !parentDir.exists()) {
                     boolean created = parentDir.mkdirs();
@@ -231,11 +211,9 @@ public class FileUploadService {
 
                 ResponseInputStream<GetObjectResponse> response = s3Client.getObject(getObjectRequest);
 
-                // Get expected content length for validation
                 long expectedLength = response.response().contentLength();
                 long downloadedBytes = 0;
 
-                // Write to file with progress tracking
                 try (FileOutputStream fos = new FileOutputStream(destinationFile);
                      BufferedOutputStream bos = new BufferedOutputStream(fos, 32768)) { // Larger buffer
 
@@ -250,7 +228,6 @@ public class FileUploadService {
                     bos.flush();
                 }
 
-                // Validate download
                 if (!destinationFile.exists()) {
                     throw new IOException("Downloaded file does not exist after download completed");
                 }
@@ -267,13 +244,12 @@ public class FileUploadService {
 
                 logger.info("File downloaded successfully: {} -> {} ({} bytes)",
                         fileUrl, destinationFile.getAbsolutePath(), actualSize);
-                return; // Success - exit retry loop
+                return;
 
             } catch (S3Exception e) {
                 lastException = new IOException("S3 error during download: " + e.awsErrorDetails().errorMessage(), e);
                 logger.warn("S3 error on attempt {} for {}: {}", attempt, fileUrl, e.awsErrorDetails().errorMessage());
 
-                // Don't retry for certain errors
                 if (e.statusCode() == 404 || e.statusCode() == 403) {
                     throw lastException;
                 }
@@ -283,7 +259,6 @@ public class FileUploadService {
                 logger.warn("IO error on attempt {} for {}: {}", attempt, fileUrl, e.getMessage());
             }
 
-            // Cleanup partial download on failure
             if (destinationFile.exists()) {
                 try {
                     Files.delete(destinationFile.toPath());
@@ -292,7 +267,6 @@ public class FileUploadService {
                 }
             }
 
-            // Wait before retry (except on last attempt)
             if (attempt < MAX_DOWNLOAD_RETRIES) {
                 try {
                     Thread.sleep(RETRY_DELAY_MS * attempt); // Exponential backoff
@@ -303,7 +277,6 @@ public class FileUploadService {
             }
         }
 
-        // All retries failed
         String errorMsg = String.format("Failed to download file after %d attempts: %s",
                 MAX_DOWNLOAD_RETRIES, fileUrl);
         throw new IOException(errorMsg, lastException);
@@ -318,11 +291,7 @@ public class FileUploadService {
         return String.format("%s/%s/%s_%s.%s", folder, timestamp, uniqueId, sanitizedName, extension);
     }
 
-    /**
-     * Generate file key with category-based path structure
-     * Format: {categoryName}/{fileType}/{filename}
-     * Example: animals/markers/marker_01.png
-     */
+
     public String generateCategoryBasedFileKey(String originalFilename, String categoryName, String fileType) {
         String extension = getFileExtension(originalFilename);
         String sanitizedName = sanitizeFilename(originalFilename);
@@ -333,10 +302,8 @@ public class FileUploadService {
 
     private String getFileUrl(String key) {
         if (baseUrl != null && !baseUrl.isEmpty()) {
-            // Use custom CloudFront URL
             return baseUrl.endsWith("/") ? baseUrl + key : baseUrl + "/" + key;
         } else {
-            // Use S3 direct URL
             return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, key);
         }
     }
@@ -363,14 +330,12 @@ public class FileUploadService {
                 }
                 break;
             case "imgdb":
-                // Allow any file type for database files
                 break;
             default:
                 logger.warn("Unknown folder type: {}, allowing any file type", folder);
                 break;
         }
 
-        // Check file size
         long maxSize = getMaxFileSize(folder);
         if (file.getSize() > maxSize) {
             throw new IllegalArgumentException(
@@ -379,9 +344,6 @@ public class FileUploadService {
         }
     }
 
-    /**
-     * Validate file type for category-based uploads
-     */
     private void validateFileTypeByCategory(MultipartFile file, String fileType) {
         String contentType = file.getContentType();
         String filename = file.getOriginalFilename();
@@ -408,7 +370,6 @@ public class FileUploadService {
                 break;
         }
 
-        // Check file size using fileType as folder equivalent
         long maxSize = getMaxFileSize(fileType);
         if (file.getSize() > maxSize) {
             throw new IllegalArgumentException(
@@ -421,13 +382,13 @@ public class FileUploadService {
         switch (folder.toLowerCase()) {
             case "markers":
             case "thumbnails":
-                return 5 * 1024 * 1024; // 5MB for images
+                return 5 * 1024 * 1024;
             case "videos":
-                return 500 * 1024 * 1024; // 500MB for videos
+                return 500 * 1024 * 1024;
             case "imgdb":
-                return 100 * 1024 * 1024; // 100MB for database files
+                return 100 * 1024 * 1024;
             default:
-                return 10 * 1024 * 1024; // 10MB default
+                return 10 * 1024 * 1024;
         }
     }
 
@@ -441,17 +402,13 @@ public class FileUploadService {
     private String sanitizeFilename(String filename) {
         if (filename == null) return "file";
 
-        // Remove extension and path
         String name = filename.contains(".") ?
                 filename.substring(0, filename.lastIndexOf(".")) : filename;
 
-        // Remove path separators
         name = name.replaceAll("[\\\\/]", "");
 
-        // Replace special characters with underscore and limit length
         String sanitized = name.replaceAll("[^a-zA-Z0-9._-]", "_").toLowerCase();
 
-        // Limit length to 50 characters
         if (sanitized.length() > 50) {
             sanitized = sanitized.substring(0, 50);
         }
@@ -490,7 +447,6 @@ public class FileUploadService {
             } else if (url.contains(".amazonaws.com/")) {
                 return url.substring(url.indexOf(".amazonaws.com/") + 15);
             } else if (url.startsWith("s3://")) {
-                // Handle s3:// URLs
                 String withoutProtocol = url.substring(5);
                 if (withoutProtocol.contains("/")) {
                     return withoutProtocol.substring(withoutProtocol.indexOf("/") + 1);
@@ -503,9 +459,6 @@ public class FileUploadService {
         return null;
     }
 
-    /**
-     * Check if S3 client is properly configured
-     */
     public boolean isConfigured() {
         return s3Client != null && bucketName != null && !bucketName.trim().isEmpty();
     }

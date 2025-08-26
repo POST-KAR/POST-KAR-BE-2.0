@@ -85,22 +85,18 @@ public class DatabaseBuildService {
         buildLog.append("Build started at: ").append(LocalDateTime.now()).append("\n");
 
         try {
-            // 1. Verify ARCore tool availability
             verifyArCoreToolAvailability(buildLog);
 
-            // 2. Create temp build directory
             Path buildDir = Paths.get(tempBuildDirectory, "build-" + databaseId);
             Files.createDirectories(buildDir);
             buildLog.append("Created build directory: ").append(buildDir).append("\n");
 
-            // 3. Get all active markers
             List<Marker> activeMarkers = markerRepository.findByIsActiveTrue();
             if (activeMarkers.isEmpty()) {
                 throw new RuntimeException("No active markers found");
             }
             buildLog.append("Found ").append(activeMarkers.size()).append(" active markers\n");
 
-            // 4. Download and validate marker images
             Path inputListFile = buildDir.resolve("images.txt");
             int validMarkers = downloadAndValidateMarkers(activeMarkers, buildDir, inputListFile, buildLog);
 
@@ -108,35 +104,29 @@ public class DatabaseBuildService {
                 throw new RuntimeException("No valid marker images after validation. Check build log for details.");
             }
 
-            // 5. Build .imgdb using arcoreimg with proper error handling
             Path imgdbFile = buildDir.resolve("markers_" + database.getVersion() + ".imgdb");
             runArCoreImgBuild(inputListFile, imgdbFile, buildLog);
 
-            // 6. Verify output file was created
             if (!Files.exists(imgdbFile) || Files.size(imgdbFile) == 0) {
                 throw new RuntimeException("ARCore build completed but output file is missing or empty");
             }
 
-            // 7. Calculate checksum
             String checksum = calculateSHA256(imgdbFile);
             buildLog.append("Generated checksum: ").append(checksum).append("\n");
 
-            // 8. Upload .imgdb to cloud storage
             String cloudUrl = fileUploadService.uploadFile(imgdbFile.toFile(),
                     "imgdb/markers_" + database.getVersion() + ".imgdb");
             buildLog.append("Uploaded to: ").append(cloudUrl).append("\n");
 
-            // 9. Update database record
+
             database.setImgdbUrl(cloudUrl);
             database.setImgdbChecksum(checksum);
             database.setBuildStatus("ready");
             database.setBuildLog(buildLog.toString());
             arDatabaseRepository.save(database);
 
-            // 10. Auto-publish if this is the first database or if auto-publish is enabled
             arDatabaseService.publishDatabase(databaseId);
 
-            // 11. Cleanup temp files
             deleteDirectory(buildDir.toFile());
 
             logger.info("Database build completed successfully for ID: {}", databaseId);
@@ -192,7 +182,6 @@ public class DatabaseBuildService {
                     buildLog.append("Processing marker: ").append(marker.getMarkerId())
                             .append(" from URL: ").append(imageUrl).append("\n");
 
-                    // Download file with original extension first
                     String originalExtension = getFileExtension(imageUrl);
                     Path originalFile = buildDir.resolve("marker_" + marker.getMarkerId() + "_original." + originalExtension);
 
@@ -206,16 +195,14 @@ public class DatabaseBuildService {
                         continue;
                     }
 
-                    // Validate and preprocess image
                     Path processedFile = buildDir.resolve("marker_" + marker.getMarkerId() + ".png");
                     if (validateAndPreprocessImage(originalFile, processedFile, buildLog, marker.getMarkerId())) {
-                        // Add to input list (format: name|path|widthInMeters)
+
                         String pathForArCore = processedFile.toAbsolutePath().toString().replace("\\", "/");
                         String markerName = marker.getMarkerId().trim();
                         double width = 0.1;
 
-                        // Write properly formatted line - ARCore expects pipe-separated format
-                        // Format: <marker_name>|<image_path>|<width_in_meters>
+
                         writer.println(markerName + "|" + pathForArCore + "|" + width);
 
                         validMarkerCount++;
@@ -226,7 +213,6 @@ public class DatabaseBuildService {
                         buildLog.append("Warning: Skipped invalid marker image: ").append(marker.getMarkerId()).append("\n");
                     }
 
-                    // Clean up original file
                     Files.deleteIfExists(originalFile);
 
                 } catch (Exception e) {
@@ -237,7 +223,6 @@ public class DatabaseBuildService {
             }
         }
 
-        // Debug: Log the contents of the input list file
         try {
             List<String> lines = Files.readAllLines(inputListFile, StandardCharsets.UTF_8);
             buildLog.append("Input list file contents:\n");
@@ -256,13 +241,11 @@ public class DatabaseBuildService {
         try {
             buildLog.append("Validating image for marker ").append(markerId).append(": ").append(inputFile).append("\n");
 
-            // Check if file exists
             if (!Files.exists(inputFile)) {
                 buildLog.append("Error: Input file does not exist\n");
                 return false;
             }
 
-            // Check file size
             long fileSize = Files.size(inputFile);
             buildLog.append("File size: ").append(fileSize).append(" bytes\n");
 
@@ -276,7 +259,6 @@ public class DatabaseBuildService {
                 return false;
             }
 
-            // Read and validate image
             BufferedImage image;
             try {
                 image = ImageIO.read(inputFile.toFile());
@@ -290,7 +272,6 @@ public class DatabaseBuildService {
                 return false;
             }
 
-            // Check dimensions
             buildLog.append("Image dimensions: ").append(image.getWidth()).append("x").append(image.getHeight()).append("\n");
 
             if (image.getWidth() < MIN_IMAGE_SIZE || image.getHeight() < MIN_IMAGE_SIZE) {
@@ -299,7 +280,6 @@ public class DatabaseBuildService {
                 return false;
             }
 
-            // Convert to RGB if necessary and ensure high quality
             BufferedImage processedImage = new BufferedImage(
                     image.getWidth(),
                     image.getHeight(),
@@ -312,24 +292,20 @@ public class DatabaseBuildService {
                 g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // Fill with white background first (in case of transparency)
                 g2d.setColor(Color.WHITE);
                 g2d.fillRect(0, 0, image.getWidth(), image.getHeight());
 
-                // Draw the image
                 g2d.drawImage(image, 0, 0, null);
             } finally {
                 g2d.dispose();
             }
 
-            // Save as high-quality PNG
             boolean saved = ImageIO.write(processedImage, "PNG", outputFile.toFile());
             if (!saved) {
                 buildLog.append("Error: Failed to save processed image\n");
                 return false;
             }
 
-            // Verify the output file was created and has content
             if (!Files.exists(outputFile) || Files.size(outputFile) == 0) {
                 buildLog.append("Error: Output file was not created or is empty\n");
                 return false;
@@ -354,12 +330,10 @@ public class DatabaseBuildService {
         String[] parts = url.split("\\.");
         String extension = parts[parts.length - 1].toLowerCase();
 
-        // Handle query parameters
         if (extension.contains("?")) {
             extension = extension.split("\\?")[0];
         }
 
-        // Handle common URL parameters and ensure valid extension
         switch (extension) {
             case "jpeg":
                 return "jpg";
@@ -381,7 +355,6 @@ public class DatabaseBuildService {
                 "--output_db_path=" + outputFile.toAbsolutePath()
         );
 
-        // Set working directory and environment
         pb.directory(outputFile.getParent().toFile());
         pb.redirectErrorStream(false); // Keep stdout and stderr separate
 
@@ -390,7 +363,6 @@ public class DatabaseBuildService {
 
         Process process = pb.start();
 
-        // Capture output and errors separately with timeout
         StringBuilder stdout = new StringBuilder();
         StringBuilder stderr = new StringBuilder();
 
@@ -421,7 +393,6 @@ public class DatabaseBuildService {
         outputReader.start();
         errorReader.start();
 
-        // Wait for process with timeout
         boolean completed = process.waitFor(ARCOREIMG_TIMEOUT_MINUTES, TimeUnit.MINUTES);
 
         if (!completed) {
@@ -429,7 +400,6 @@ public class DatabaseBuildService {
             throw new RuntimeException("ARCore build process timed out after " + ARCOREIMG_TIMEOUT_MINUTES + " minutes");
         }
 
-        // Wait for output readers to finish
         outputReader.join(5000);
         errorReader.join(5000);
 
@@ -459,7 +429,6 @@ public class DatabaseBuildService {
 
             byte[] buffer = new byte[8192];
             while (dis.read(buffer) != -1) {
-                // Reading file to calculate digest
             }
         }
 

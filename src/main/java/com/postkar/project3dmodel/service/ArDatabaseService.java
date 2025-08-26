@@ -30,23 +30,19 @@ public class ArDatabaseService {
     @Value("${ar.database.build.enabled:true}")
     private boolean buildEnabled;
 
-    // Get current active version info
     public Optional<MarkerVersion> getCurrentVersion() {
         return markerVersionRepository.findByIsActiveTrue();
     }
 
-    // Get current AR database
     public Optional<ArDatabase> getCurrentDatabase() {
         return arDatabaseRepository.findByIsActiveTrue();
     }
 
-    // Trigger database rebuild (async)
     public void triggerDatabaseRebuild() {
         if (!buildEnabled) {
             return;
         }
 
-        // Create new database entry
         ArDatabase newDb = new ArDatabase();
         newDb.setVersion(generateNewVersion());
         newDb.setBuildStatus("building");
@@ -55,43 +51,36 @@ public class ArDatabaseService {
 
         ArDatabase savedDb = arDatabaseRepository.save(newDb);
 
-        // Start async build process
         databaseBuildService.buildDatabaseAsync(savedDb.getId());
     }
 
-    // Publish a built database (make it active)
     public void publishDatabase(String databaseId) {
         Optional<ArDatabase> dbOpt = arDatabaseRepository.findById(databaseId);
 
         if (dbOpt.isPresent() && "ready".equals(dbOpt.get().getBuildStatus())) {
             ArDatabase newDb = dbOpt.get();
 
-            // Deactivate current database
             arDatabaseRepository.findByIsActiveTrue()
                     .ifPresent(currentDb -> {
                         currentDb.setActive(false);
                         arDatabaseRepository.save(currentDb);
                     });
 
-            // Activate new database
             newDb.setActive(true);
             newDb.setPublishedAt(LocalDateTime.now());
             arDatabaseRepository.save(newDb);
 
-            // Update version info
             updateVersionInfo(newDb);
         }
     }
 
     private void updateVersionInfo(ArDatabase database) {
-        // Deactivate current version
         markerVersionRepository.findByIsActiveTrue()
                 .ifPresent(currentVersion -> {
                     currentVersion.setActive(false);
                     markerVersionRepository.save(currentVersion);
                 });
 
-        // Create new version
         MarkerVersion newVersion = new MarkerVersion();
         newVersion.setVersion(database.getVersion());
         newVersion.setArDatabaseId(database.getId());
@@ -103,7 +92,6 @@ public class ArDatabaseService {
     }
 
     private String generateNewVersion() {
-        // Simple versioning: v1, v2, v3...
         Optional<MarkerVersion> latestVersion = markerVersionRepository.findTopByOrderByLastUpdatedDesc();
 
         if (latestVersion.isPresent()) {

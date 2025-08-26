@@ -58,29 +58,22 @@ public class SignedUrlService {
         }
     }
 
-    /**
-     * Generate signed URL for S3 object with default expiry
-     */
+
     public String generateSignedUrl(String fileUrl) {
         return generateSignedUrl(fileUrl, expiryHours);
     }
 
-    /**
-     * Generate signed URL for S3 object with custom expiry
-     */
+
     public String generateSignedUrl(String fileUrl, int hours) {
         if (fileUrl == null || fileUrl.trim().isEmpty()) {
             return null;
         }
 
-        // If it's already a full HTTP URL, check if it needs signing
         if (fileUrl.startsWith("http")) {
-            // If using CloudFront, URLs might not need signing
             if (baseUrl != null && !baseUrl.isEmpty() && fileUrl.startsWith(baseUrl)) {
                 return fileUrl; // CloudFront URLs typically don't need signing
             }
 
-            // If it's already an S3 URL with parameters, return as is
             if (fileUrl.contains("?")) {
                 return fileUrl;
             }
@@ -90,7 +83,7 @@ public class SignedUrlService {
             String s3Key = extractS3KeyFromUrl(fileUrl);
             if (s3Key == null) {
                 logger.warn("Cannot extract S3 key from URL: {}", fileUrl);
-                return fileUrl; // Return original URL if we can't parse it
+                return fileUrl;
             }
 
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -111,20 +104,15 @@ public class SignedUrlService {
 
         } catch (Exception e) {
             logger.error("Failed to generate signed URL for: {}", fileUrl, e);
-            return fileUrl; // Return original URL on error
+            return fileUrl;
         }
     }
 
-    /**
-     * Generate signed URL directly from S3 key
-     */
+
     public String generateSignedUrlFromKey(String s3Key) {
         return generateSignedUrlFromKey(s3Key, expiryHours);
     }
 
-    /**
-     * Generate signed URL directly from S3 key with custom expiry
-     */
     public String generateSignedUrlFromKey(String s3Key, int hours) {
         if (s3Key == null || s3Key.trim().isEmpty()) {
             return null;
@@ -153,27 +141,22 @@ public class SignedUrlService {
         }
     }
 
-    /**
-     * Extract S3 key from various URL formats
-     */
+
     private String extractS3KeyFromUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
             return null;
         }
 
         try {
-            // Handle CloudFront URLs
             if (baseUrl != null && !baseUrl.isEmpty() && url.startsWith(baseUrl)) {
                 String baseUrlClean = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
                 return url.substring(baseUrlClean.length() + 1);
             }
 
-            // Handle S3 direct URLs
             if (url.contains(".amazonaws.com/")) {
                 return url.substring(url.indexOf(".amazonaws.com/") + 15);
             }
 
-            // Handle s3:// protocol URLs
             if (url.startsWith("s3://")) {
                 String withoutProtocol = url.substring(5);
                 if (withoutProtocol.contains("/")) {
@@ -182,7 +165,6 @@ public class SignedUrlService {
                 }
             }
 
-            // If no protocol, assume it's already an S3 key
             if (!url.startsWith("http") && !url.startsWith("s3://")) {
                 return url;
             }
@@ -194,16 +176,11 @@ public class SignedUrlService {
         return null;
     }
 
-    /**
-     * Check if the service is properly configured
-     */
+
     public boolean isConfigured() {
         return s3Presigner != null && bucketName != null && !bucketName.trim().isEmpty();
     }
 
-    /**
-     * Clean up resources
-     */
     public void cleanup() {
         if (s3Presigner != null) {
             s3Presigner.close();

@@ -16,8 +16,8 @@ public class MarkerVersion {
     @Id
     private String id;
 
-    private String version;              // "v1", "v2", "v3"
-    private String arDatabaseId;         // Reference to ArDatabase
+    private String version;
+    private String arDatabaseId;
     private LocalDateTime lastUpdated;
     private boolean isActive;
 

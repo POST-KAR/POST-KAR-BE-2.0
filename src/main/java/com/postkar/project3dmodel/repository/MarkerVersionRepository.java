@@ -9,12 +9,9 @@ import java.util.Optional;
 @Repository
 public interface MarkerVersionRepository extends MongoRepository<MarkerVersion, String> {
 
-    // Get the current active version
     Optional<MarkerVersion> findByIsActiveTrue();
 
-    // Find by version string
     Optional<MarkerVersion> findByVersion(String version);
 
-    // Get latest version
     Optional<MarkerVersion> findTopByOrderByLastUpdatedDesc();
 }

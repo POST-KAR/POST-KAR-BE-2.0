@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 public class SyncRequest {
     private String currentVersion;
     private LocalDateTime lastSyncTime;
-    private String platform; // "android" or "ios"
+    private String platform;
     private String appVersion;
     private String deviceId;
 }
