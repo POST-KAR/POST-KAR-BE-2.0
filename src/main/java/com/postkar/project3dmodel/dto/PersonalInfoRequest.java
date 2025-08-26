@@ -18,11 +18,9 @@ public class PersonalInfoRequest {
     @Email(message = "Please provide a valid email address")
     private String email;
 
-    @NotBlank(message = "Name is required")
     @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
     private String name;
 
-    @NotBlank
     @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Date of birth must be in yyyy-MM-dd format")
     private String dob;
 

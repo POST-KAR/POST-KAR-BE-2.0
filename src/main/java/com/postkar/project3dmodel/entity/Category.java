@@ -18,7 +18,5 @@ public class Category {
     private String name;
     private String description;
 
-    @Nullable
-    private String imageUrl;
 }
 

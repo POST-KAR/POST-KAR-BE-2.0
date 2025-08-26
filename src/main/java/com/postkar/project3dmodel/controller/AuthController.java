@@ -95,8 +95,8 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "FOR Slide/Window 3: Set Username and Password",
-            description = "Set username and password for the account")
+    @Operation(summary = "FOR Slide/Window 3: Set Username and Password - COMPLETES REGISTRATION",
+            description = "Set username and password for the account. This step completes the registration and creates the user account. User can now login.")
     @PostMapping("/set-credentials")
     public ResponseEntity<RegistrationResponse> setCredentials(@Valid @RequestBody CredentialsRequest req) {
         try {
@@ -105,7 +105,7 @@ public class AuthController {
 
             RegistrationResponse response = authService.setCredentials(req);
 
-            System.out.println("Credentials set successfully for: " + req.getEmail());
+            System.out.println("User registered successfully for: " + req.getEmail());
             System.out.println("=== SET CREDENTIALS REQUEST SUCCESSFUL ===");
 
             return ResponseEntity.ok(response);
@@ -119,32 +119,32 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "FOR Slide/Window 4: Set Information",
-            description = "Complete registration with personal information. Name, DOB, Phone number. Phone number is optional. Use DOB format as yyyy-MM-dd")
+    @Operation(summary = "FOR Slide/Window 4: Set Profile Information (OPTIONAL)",
+            description = "Complete profile with personal information. This step is optional - users can login without completing this. Name, DOB, Phone number are all optional. Use DOB format as yyyy-MM-dd")
     @PostMapping("/set-info")
     public ResponseEntity<RegistrationResponse> setInfo(@Valid @RequestBody PersonalInfoRequest req) {
         try {
-            System.out.println("=== COMPLETE REGISTRATION REQUEST STARTED ===");
+            System.out.println("=== COMPLETE PROFILE REQUEST STARTED ===");
             System.out.println("Email: " + req.getEmail() + ", Name: " + req.getName());
 
             RegistrationResponse response = authService.setInfo(req);
 
-            System.out.println("Registration completed successfully for: " + req.getEmail());
-            System.out.println("=== COMPLETE REGISTRATION REQUEST SUCCESSFUL ===");
+            System.out.println("Profile completed successfully for: " + req.getEmail());
+            System.out.println("=== COMPLETE PROFILE REQUEST SUCCESSFUL ===");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("=== COMPLETE REGISTRATION REQUEST FAILED ===");
+            System.err.println("=== COMPLETE PROFILE REQUEST FAILED ===");
             System.err.println("Error for email: " + req.getEmail() + " - " + e.getMessage());
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new RegistrationResponse("Failed to complete registration: " + e.getMessage(),
+                    .body(new RegistrationResponse("Failed to complete profile: " + e.getMessage(),
                             req.getEmail(), false));
         }
     }
 
     @Operation(summary = "User Login",
-            description = "Authenticate user with email and password, returns JWT tokens")
+            description = "Authenticate user with email and password, returns JWT tokens. Users can login after completing step 3 (setting credentials).")
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
         try {

@@ -21,7 +21,7 @@ public class EmailService {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
-            message.setSubject("Your OTP for Post-star Email Verification");
+            message.setSubject("Your OTP for Post - कAR Email Verification");
             message.setText("Your OTP is: " + otp);
             mailSender.send(message);
             logger.info("OTP sent to: {}", to);
