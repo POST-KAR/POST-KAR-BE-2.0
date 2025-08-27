@@ -109,7 +109,7 @@ public class AuthService {
         return new RegistrationResponse("OTP resent to your email", req.getEmail(), true);
     }
 
-    // Window 3: Set Credentials
+    // Window 3: Set Credentials and Create User
     @Transactional
     public RegistrationResponse setCredentials(CredentialsRequest req) {
         TempRegistration tempReg = tempRegRepo.findByEmail(req.getEmail())
@@ -127,28 +127,38 @@ public class AuthService {
             throw new RuntimeException("Username already taken");
         }
 
-        tempReg.setUsername(req.getUsername());
-        tempReg.setPassword(encoder.encode(req.getPassword()));
-        tempReg.setStatus(TempRegistration.Status.CREDENTIALS_SET);
-        tempRegRepo.save(tempReg);
+        // Create the user now instead of waiting for step 4
+        User user = new User();
+        user.setEmail(req.getEmail());
+        user.setUsername(req.getUsername());
+        user.setPassword(encoder.encode(req.getPassword()));
+        user.setEmailVerified(true);
+        user.setCredentialsSet(true);
+        user.setProfileCompleted(false); // Will be set to true if they complete step 4
+        user.setProvider("LOCAL");
+        user.setRegistrationStatus(User.RegistrationStatus.COMPLETED); // User is now registered
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
 
-        return new RegistrationResponse("Credentials set successfully", req.getEmail(), true);
+        userRepo.save(user);
+
+        // Clean up temporary registration
+        tempRegRepo.deleteByEmail(req.getEmail());
+
+        return new RegistrationResponse("Registration completed successfully. You can now login or optionally complete your profile.", req.getEmail(), true);
     }
 
-    // Window 4: Set Info
+    // Window 4: Set Info (Now Optional)
     @Transactional
     public RegistrationResponse setInfo(PersonalInfoRequest req) {
-        TempRegistration tempReg = tempRegRepo.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("Registration not found. Please start again."));
+        User user = userRepo.findByEmail(req.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found. Please complete registration first."));
 
-        if (tempReg.getStatus() != TempRegistration.Status.CREDENTIALS_SET) {
-            throw new RuntimeException("Please complete previous steps first");
+        if (!user.isCredentialsSet()) {
+            throw new RuntimeException("Please complete your registration first");
         }
 
-        User user = new User();
-        user.setEmail(tempReg.getEmail());
-        user.setUsername(tempReg.getUsername());
-        user.setPassword(tempReg.getPassword()); // Already encoded
+        // Update user with personal information
         user.setName(req.getName());
         user.setPhoneNumber(req.getPhoneNumber());
 
@@ -156,22 +166,15 @@ public class AuthService {
             user.setDateOfBirth(LocalDate.parse(req.getDob()));
         }
 
-        user.setEmailVerified(true);
-        user.setCredentialsSet(true);
         user.setProfileCompleted(true);
-        user.setProvider("LOCAL");
-        user.setRegistrationStatus(User.RegistrationStatus.COMPLETED);
-        user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
         userRepo.save(user);
 
-        tempRegRepo.deleteByEmail(req.getEmail());
-
-        return new RegistrationResponse("Registration completed successfully", req.getEmail(), true);
+        return new RegistrationResponse("Profile completed successfully", req.getEmail(), true);
     }
 
-    // Login method
+    // Login method - Now allows login even if profile is not completed
     public Map<String, Object> login(LoginRequest req) {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -180,7 +183,7 @@ public class AuthService {
             throw new RuntimeException("Email not verified");
         }
 
-        if (user.getRegistrationStatus() != User.RegistrationStatus.COMPLETED) {
+        if (!user.isCredentialsSet()) {
             throw new RuntimeException("Please complete your registration");
         }
 
@@ -201,8 +204,9 @@ public class AuthService {
         response.put("refreshToken", refreshToken);
         response.put("user", Map.of(
                 "email", user.getEmail(),
-                "name", user.getName(),
-                "username", user.getUsername()
+                "name", user.getName() != null ? user.getName() : "",
+                "username", user.getUsername(),
+                "profileCompleted", user.isProfileCompleted()
         ));
         return response;
     }

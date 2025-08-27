@@ -1,64 +1,102 @@
 package com.postkar.project3dmodel.exception;
 
-import com.postkar.project3dmodel.response.RegistrationResponse;
+import com.postkar.project3dmodel.response.ErrorResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 
-import java.util.HashMap;
-import java.util.Map;
+import jakarta.validation.ConstraintViolationException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
+    
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, Object>> handleRuntimeException(
-            RuntimeException ex, WebRequest request) {
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", ex.getMessage());
-        response.put("timestamp", System.currentTimeMillis());
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, WebRequest request) {
+        logger.error("Unexpected error occurred", ex);
+        
+        ErrorResponse error = new ErrorResponse(
+            "INTERNAL_SERVER_ERROR", 
+            "An unexpected error occurred"
+        );
+        error.setPath(request.getDescription(false));
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationExceptions(
-            MethodArgumentNotValidException ex) {
-
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
-            String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
-        });
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", "Validation failed");
-        response.put("errors", errors);
-        response.put("timestamp", System.currentTimeMillis());
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex, WebRequest request) {
+        logger.warn("Validation error: {}", ex.getMessage());
+        
+        String message = ex.getBindingResult().getFieldErrors().stream()
+            .map(error -> error.getField() + ": " + error.getDefaultMessage())
+            .reduce((a, b) -> a + ", " + b)
+            .orElse("Validation failed");
+        
+        ErrorResponse error = new ErrorResponse(
+            "VALIDATION_ERROR", 
+            message
+        );
+        error.setPath(request.getDescription(false));
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGenericException(
-            Exception ex, WebRequest request) {
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex, WebRequest request) {
+        logger.warn("Constraint violation: {}", ex.getMessage());
+        
+        ErrorResponse error = new ErrorResponse(
+            "CONSTRAINT_VIOLATION", 
+            ex.getMessage()
+        );
+        error.setPath(request.getDescription(false));
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", "An unexpected error occurred");
-        response.put("timestamp", System.currentTimeMillis());
+    @ExceptionHandler(MarkerNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleMarkerNotFound(MarkerNotFoundException ex, WebRequest request) {
+        logger.warn("Marker not found: {}", ex.getMessage());
+        
+        ErrorResponse error = new ErrorResponse(
+            "MARKER_NOT_FOUND", 
+            ex.getMessage()
+        );
+        error.setPath(request.getDescription(false));
+        
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
 
-        System.err.println("Unexpected error: " + ex.getMessage());
-        ex.printStackTrace();
+    @ExceptionHandler(DatabaseBuildException.class)
+    public ResponseEntity<ErrorResponse> handleDatabaseBuildException(DatabaseBuildException ex, WebRequest request) {
+        logger.error("Database build failed: {}", ex.getMessage());
+        
+        ErrorResponse error = new ErrorResponse(
+            "DATABASE_BUILD_FAILED", 
+            ex.getMessage()
+        );
+        error.setPath(request.getDescription(false));
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex, WebRequest request) {
+        logger.error("Runtime exception occurred: {}", ex.getMessage());
+        
+        ErrorResponse error = new ErrorResponse(
+            "RUNTIME_ERROR", 
+            ex.getMessage()
+        );
+        error.setPath(request.getDescription(false));
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 }
