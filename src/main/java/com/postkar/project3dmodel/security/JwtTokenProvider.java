@@ -12,16 +12,15 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwt.secret}")
+    @Value("${jwt.secret}")
     private String secret;
 
     private SecretKey key;
 
-
-    @Value("${app.jwt.access-token-validity}")
+    @Value("${jwt.access.expiration}")
     private long accessTokenValidity;
 
-    @Value("${app.jwt.refresh-token-validity}")
+    @Value("${jwt.refresh.expiration}")
     private long refreshTokenValidity;
 
     @PostConstruct
@@ -29,18 +28,18 @@ public class JwtTokenProvider {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String generateAccessToken(String email) {
+    public String generateAccessToken(String mobileNumber) {
         return Jwts.builder()
-                .subject(email)
+                .subject(mobileNumber)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenValidity))
                 .signWith(key)
                 .compact();
     }
 
-    public String generateRefreshToken(String email) {
+    public String generateRefreshToken(String mobileNumber) {
         return Jwts.builder()
-                .subject(email)
+                .subject(mobileNumber)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshTokenValidity))
                 .signWith(key)
@@ -56,7 +55,7 @@ public class JwtTokenProvider {
         }
     }
 
-    public String extractEmail(String token) {
+    public String extractMobileNumber(String token) {
         return Jwts.parser()
                 .verifyWith(key)
                 .build()

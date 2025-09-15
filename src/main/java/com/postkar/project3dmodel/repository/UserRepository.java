@@ -11,13 +11,7 @@ import com.postkar.project3dmodel.entity.User;
 @Repository
 public interface UserRepository extends MongoRepository<User, String> {
 
-    Optional<User> findByEmail(String email);
+    Optional<User> findByPhoneNumber(String phoneNumber);
 
-    Optional<User> findByUsername(String username);
-
-    boolean existsByEmail(String email);
-
-    boolean existsByUsername(String username);
-
-    Optional<User> findByEmailAndProvider(String email, String provider);
+    boolean existsByPhoneNumber(String phoneNumber);
 }

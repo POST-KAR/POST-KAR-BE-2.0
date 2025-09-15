@@ -16,19 +16,22 @@ public class CustomUserDetailsService implements UserDetailsService {
     private UserRepository userRepository;
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+    public UserDetails loadUserByUsername(String mobileNumber) throws UsernameNotFoundException {
+        User user = userRepository.findByPhoneNumber(mobileNumber)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + mobileNumber));
 
-        String password = user.getPassword();
-        if (password == null) {
-            password = "";
-        }
+        // Since we're using OTP-based authentication, we don't need a password
+        // But Spring Security requires one, so we'll use a placeholder
+        String password = "N/A";
 
         return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())
+                .username(user.getPhoneNumber())
                 .password(password)
                 .authorities(Collections.emptyList())
+                .accountExpired(!user.isActive())
+                .accountLocked(!user.isMobileVerified())
+                .credentialsExpired(false)
+                .disabled(!user.isActive())
                 .build();
     }
 }

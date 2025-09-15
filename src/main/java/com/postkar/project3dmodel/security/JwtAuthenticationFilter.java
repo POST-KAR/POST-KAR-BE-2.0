@@ -36,23 +36,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String header = request.getHeader("Authorization");
             String token = null;
-            String email = null;
+            String mobileNumber = null;
 
             if (header != null && header.startsWith("Bearer ")) {
                 token = header.substring(7);
-                email = jwtTokenProvider.extractEmail(token);
+                mobileNumber = jwtTokenProvider.extractMobileNumber(token);
             }
 
-            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            if (mobileNumber != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(mobileNumber);
                 if (jwtTokenProvider.validateToken(token)) {
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    logger.debug("Authenticated user: {}", email);
+                    logger.debug("Authenticated user: {}", mobileNumber);
                 } else {
-                    logger.warn("Invalid JWT token for email: {}", email);
+                    logger.warn("Invalid JWT token for mobile: {}", mobileNumber);
                 }
             }
         } catch (Exception e) {

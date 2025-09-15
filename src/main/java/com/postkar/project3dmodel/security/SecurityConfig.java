@@ -1,8 +1,6 @@
 package com.postkar.project3dmodel.security;
 
 import com.postkar.project3dmodel.security.JwtAuthenticationFilter;
-import com.postkar.project3dmodel.service.CustomOAuth2UserService;
-import com.postkar.project3dmodel.service.OAuth2AuthenticationSuccessHandler;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -33,13 +31,7 @@ public class SecurityConfig {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Autowired
-    private CustomOAuth2UserService customOAuth2UserService;
-
-    @Autowired
     private CustomUserDetailsService customUserDetailsService;
-
-    @Autowired
-    private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -49,17 +41,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
                         .requestMatchers("/", "/index.html", "privacy-policy.html").permitAll()
-                        .requestMatchers( "/auth/**", "/api/auth/**", "/index.html").permitAll()
-                        .requestMatchers("/oauth/**", "/api/oauth/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**", "/login/oauth2/code/**").permitAll()
+                        .requestMatchers("/auth/**", "/api/auth/**").permitAll()
+                        .requestMatchers("/api/mobile/oauth/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**").permitAll()
                         .anyRequest().authenticated()
-                )
-                .oauth2Login(oauth -> oauth
-                        .userInfoEndpoint(userInfo ->
-                                userInfo.userService(customOAuth2UserService)
-                        )
-                        .successHandler(oAuth2AuthenticationSuccessHandler)
-                        .loginPage("/")
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, ex) -> {

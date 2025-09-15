@@ -103,6 +103,12 @@
 			<artifactId>auth</artifactId>
 			<version>2.26.0</version>
 		</dependency>
+		<!-- HTTP Client for MSG91 API -->
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+			<version>5.2.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
