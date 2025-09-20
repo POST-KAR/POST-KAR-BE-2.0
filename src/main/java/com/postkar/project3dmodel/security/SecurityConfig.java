@@ -51,7 +51,9 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "privacy-policy.html").permitAll()
                         .requestMatchers( "/auth/**", "/api/auth/**", "/index.html").permitAll()
                         .requestMatchers("/oauth/**", "/api/oauth/**").permitAll()
+                        .requestMatchers("/api/mobile/oauth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**", "/login/oauth2/code/**").permitAll()
+                        .requestMatchers("/api/v1/explorer/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth
