@@ -15,9 +15,9 @@ public class UserService {
 
     @Transactional
     public User createNewUser(User user) {
-        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
-            throw new RuntimeException("Email already exists");
-        }
-        return userRepository.save(user);
+//        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+//            throw new RuntimeException("Email already exists");
+//        }
+        return user;
     }
 }

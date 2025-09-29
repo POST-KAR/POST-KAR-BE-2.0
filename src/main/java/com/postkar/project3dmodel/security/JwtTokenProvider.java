@@ -12,15 +12,15 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")
+    @Value("${app.jwt.secret}")
     private String secret;
 
     private SecretKey key;
 
-    @Value("${jwt.access.expiration}")
+    @Value("${app.jwt.access-token-validity}")
     private long accessTokenValidity;
 
-    @Value("${jwt.refresh.expiration}")
+    @Value("${app.jwt.refresh-token-validity}")
     private long refreshTokenValidity;
 
     @PostConstruct
