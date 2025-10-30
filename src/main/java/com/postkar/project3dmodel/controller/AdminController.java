@@ -51,8 +51,8 @@ public class AdminController {
 
     @Operation(
             summary = "Upload Files",
-            description = "Upload marker image, thumbnail, and video files to S3.\n\n" +
-                    "Returns actual S3 URLs that can be used in marker creation requests.\n" +
+            description = "Upload marker image, thumbnail, and video files to Cloudflare R2.\n\n" +
+                    "Returns actual R2 URLs that can be used in marker creation requests.\n" +
                     "All files are uploaded to cloud storage with proper validation.\n" +
                     "Files are organized by category: {categoryName}/{fileType}/{filename}"
     )
