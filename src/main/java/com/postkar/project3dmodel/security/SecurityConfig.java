@@ -40,9 +40,15 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
-                        .requestMatchers("/", "/index.html", "privacy-policy.html").permitAll()
+                        .requestMatchers("/", "/index.html", "/assets/**", "/vite.svg", "/favicon.ico").permitAll()
                         .requestMatchers("/auth/**", "/api/auth/**").permitAll()
-                        .requestMatchers("/api/mobile/oauth/**").permitAll()
+                        .requestMatchers("/api/waitlist/join").permitAll()
+                        .requestMatchers("/api/markers/**").permitAll() // Public product catalog
+                        .requestMatchers("/api/categories/**").permitAll() // Public categories
+                        .requestMatchers("/api/v1/explorer/**").permitAll() // Public explorer API
+                        .requestMatchers("/scanner-api/**").permitAll() // Public scanner API
+                        .requestMatchers("/api/v1/cart/**").authenticated() // Require auth for cart
+                        .requestMatchers("/api/v1/orders/**").authenticated() // Require auth for orders
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )

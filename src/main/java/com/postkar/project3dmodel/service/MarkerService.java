@@ -124,5 +124,28 @@ public class MarkerService {
         return markers;
     }
 
+    public List<Marker> searchMarkers(String query) {
+        List<Marker> markers = markerRepository.findByIsActiveTrue().stream()
+                .filter(marker ->
+                    marker.getName().toLowerCase().contains(query.toLowerCase()) ||
+                    marker.getDescription().toLowerCase().contains(query.toLowerCase())
+                )
+                .toList();
+
+        // Apply signed URLs to search results
+        markers.forEach(marker -> {
+            marker.setMarkerImageUrl(signedUrlService.generateSignedUrl(marker.getMarkerImageUrl()));
+            marker.setThumbnailUrl(signedUrlService.generateSignedUrl(marker.getThumbnailUrl()));
+
+            if (marker.getVideos() != null) {
+                marker.getVideos().forEach(video ->
+                        video.setVideoUrl(signedUrlService.generateSignedUrl(video.getVideoUrl()))
+                );
+            }
+        });
+        
+        return markers;
+    }
+
 }
 

@@ -19,6 +19,8 @@ public class Video {
     private String format;
     private Long fileSizeBytes;
     private Integer durationSeconds;
+    private Integer width;
+    private Integer height;
     
     private String schedule;
     private boolean isDefault;

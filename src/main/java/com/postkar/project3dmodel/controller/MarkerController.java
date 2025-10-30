@@ -171,4 +171,18 @@ public class MarkerController {
         return ResponseEntity.ok(markers);
     }
 
+    @Operation(
+            summary = "Search Products",
+            description = "Search markers/products by name or description.\n\n" +
+                    "Returns list of matching active markers with signed URLs."
+    )
+    @GetMapping("/search")
+    public ResponseEntity<List<Marker>> searchMarkers(
+            @Parameter(description = "Search query", example = "lion")
+            @RequestParam String q
+    ) {
+        List<Marker> markers = markerService.searchMarkers(q);
+        return ResponseEntity.ok(markers);
+    }
+
 }

@@ -8,7 +8,6 @@ import com.postkar.project3dmodel.entity.Video;
 import com.postkar.project3dmodel.response.UploadResponse;
 import com.postkar.project3dmodel.service.ArDatabaseService;
 import com.postkar.project3dmodel.service.CategoryService;
-import com.postkar.project3dmodel.service.DatabaseBuildService;
 import com.postkar.project3dmodel.service.FileUploadService;
 import com.postkar.project3dmodel.service.MarkerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,7 +24,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,9 +42,6 @@ public class AdminController {
 
     @Autowired
     private ArDatabaseService arDatabaseService;
-
-    @Autowired
-    private DatabaseBuildService databaseBuildService;
 
     @Autowired
     private FileUploadService fileUploadService;

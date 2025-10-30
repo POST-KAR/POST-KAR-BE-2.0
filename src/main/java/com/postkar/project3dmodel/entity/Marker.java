@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -39,4 +40,10 @@ public class Marker {
 
     @Nullable
     private String notes;
+    
+    // E-commerce fields
+    private BigDecimal price;
+    private String currency = "INR";
+    private Boolean inStock = true;
+    private Integer stockQuantity = 0;
 }
