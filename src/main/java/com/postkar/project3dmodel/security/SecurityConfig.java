@@ -44,7 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "/assets/**", "/vite.svg", "/favicon.ico", 
                                 "/favicon-*.png", "/apple-touch-icon.png", "/android-chrome-*.png",
                                 "/site.webmanifest", "/robots.txt", "/sitemap.xml", "/_headers", "/_header",
-                                "/scanner/**", "/*.js", "/*.css", "/*.png", "/*.jpg", "/*.svg", "/*.ico").permitAll()
+                                "/scanner/**", "/*.js", "/*.css", "/*.png", "/*.jpg", "/*.svg", "/*.ico", "/free-experience").permitAll()
                         // Auth endpoints
                         .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                         // Public API endpoints
