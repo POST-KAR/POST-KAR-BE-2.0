@@ -40,11 +40,6 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
-                        // Static resources - allow all
-                        .requestMatchers("/", "/index.html", "/assets/**", "/vite.svg", "/favicon.ico", 
-                                "/favicon-*.png", "/apple-touch-icon.png", "/android-chrome-*.png",
-                                "/site.webmanifest", "/robots.txt", "/sitemap.xml", "/_headers", "/_header",
-                                "/scanner/**", "/*.js", "/*.css", "/*.png", "/*.jpg", "/*.svg", "/*.ico", "/free-experience").permitAll()
                         // Auth endpoints
                         .requestMatchers("/auth/**", "/api/auth/**").permitAll()
                         // Public API endpoints
@@ -58,7 +53,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/orders/**").authenticated() // Require auth for orders
                         // Swagger/API docs
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**").permitAll()
-                        .anyRequest().authenticated()
+                        // Protect all other API endpoints
+                        .requestMatchers("/api/**").authenticated()
+                        // Allow all non-API requests (SPA routes, static resources)
+                        .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, ex) -> {
