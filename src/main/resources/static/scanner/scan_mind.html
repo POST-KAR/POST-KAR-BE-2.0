@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Permissions-Policy" content="camera=*, microphone=*, geolocation=*" />
+    <meta http-equiv="Feature-Policy" content="camera 'self'; microphone 'self'" />
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            overflow: hidden;
+        }
+        a-scene {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+
+    <a-scene 
+        mindar-image="imageTargetSrc: ./FreeVerse.mind; filterMinCF: 0.0001; filterBeta: 0.001;"
+        color-space="sRGB" 
+        renderer="colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false"
+    >
+        <a-assets>
+            <video 
+                id="my-video" 
+                src="https://pub-ddfac7c751fa4e7284d0063174f69f5a.r2.dev/videos/FreeVerse1.mp4"
+                loop="true"
+                preload="auto"
+                muted
+                crossorigin="anonymous"
+                playsinline
+                webkit-playsinline
+            ></video>
+        </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity mindar-image-target="targetIndex: 0" id="target">
+            <a-plane 
+                id="video-plane"
+                position="0 0 0"
+                rotation="0 0 0"
+                width="1"
+                height="1"
+                scale="1 1.32 1"
+                material="shader: flat; src: #my-video; transparent: false; side: double;"
+            ></a-plane>
+        </a-entity>
+    </a-scene>
+
+    <script>
+    // ✅ Custom component that properly scales the video slightly smaller than target
+    AFRAME.registerComponent('video-fit', {
+  schema: {
+    target: { type: 'selector' },
+    markerAspect: { type: 'number', default: 1.0 } // width / height of marker
+  },
+  init() {
+    const video = this.data.target;
+    if (!video) return;
+    video.addEventListener('loadedmetadata', () => this.adjustToAspect());
+  },
+  adjustToAspect() {
+    const video = this.data.target;
+    const plane = this.el;
+
+    const videoAspect = video.videoWidth / video.videoHeight; // video ratio
+    const markerAspect = this.data.markerAspect;
+
+    let width = 1;
+    let height = 1;
+
+    // Case 1: video is wider than marker → fit width, crop height
+    if (videoAspect > markerAspect) {
+      height = markerAspect / videoAspect;
+    }
+    // Case 2: video is taller → fit height, crop width
+    else {
+      width = videoAspect / markerAspect;
+    }
+
+    plane.setAttribute('width', width);
+    plane.setAttribute('height', height);
+
+    console.log(`🎥 Adjusted plane to ${width.toFixed(3)} x ${height.toFixed(3)} | videoAspect=${videoAspect.toFixed(3)} markerAspect=${markerAspect}`);
+  }
+});
+
+    // ===============================
+    // Existing Scanner Logic
+    // ===============================
+    const video = document.getElementById('my-video');
+
+    async function requestCameraPermission() {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Camera API not supported');
+            }
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+            } catch (envError) {
+                console.warn('Environment camera failed, trying any camera:', envError);
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            }
+            stream.getTracks().forEach(track => track.stop());
+            return true;
+        } catch (error) {
+            console.error('Camera permission denied:', error);
+            return false;
+        }
+    }
+
+    async function initializeScanner() {
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) {
+            const hasPermission = await requestCameraPermission();
+            if (!hasPermission) {
+                console.warn('Camera access required. Please refresh and allow camera access.');
+                return;
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Auto-initialize scanner on page load
+        initializeScanner();
+    });
+
+    document.querySelector('a-scene').addEventListener('loaded', () => {
+        console.log('Scene loaded');
+        
+        // Immediately load and start buffering the video
+        video.load();
+        
+        // Start playing muted to preload the video
+        video.muted = true;
+        video.play().then(() => {
+            console.log('Video preloaded and playing (muted)');
+        }).catch(e => {
+            console.log('Preload play failed, will retry on marker detection', e);
+        });
+    });
+
+    document.getElementById('target').addEventListener('targetFound', () => {
+        console.log('Target found!');
+        
+        // Unmute and ensure video is playing
+        const playVideo = () => {
+            video.muted = false;
+            video.play().then(() => {
+                console.log('Video playing with sound');
+            }).catch(e => {
+                console.log('Play attempt failed, retrying...', e);
+                setTimeout(playVideo, 100);
+            });
+        };
+        playVideo();
+    });
+
+    document.getElementById('target').addEventListener('targetLost', () => {
+        console.log('Target lost');
+        // Mute but keep playing to maintain buffer
+        video.muted = true;
+    });
+    </script>
+</body>
+</html>

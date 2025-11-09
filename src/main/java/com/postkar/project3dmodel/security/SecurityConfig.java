@@ -40,15 +40,23 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(req -> req
-                        .requestMatchers("/", "/index.html", "/assets/**", "/vite.svg", "/favicon.ico").permitAll()
+                        // Static resources - allow all
+                        .requestMatchers("/", "/index.html", "/assets/**", "/vite.svg", "/favicon.ico", 
+                                "/favicon-*.png", "/apple-touch-icon.png", "/android-chrome-*.png",
+                                "/site.webmanifest", "/robots.txt", "/sitemap.xml", "/_headers", "/_header",
+                                "/scanner/**", "/*.js", "/*.css", "/*.png", "/*.jpg", "/*.svg", "/*.ico").permitAll()
+                        // Auth endpoints
                         .requestMatchers("/auth/**", "/api/auth/**").permitAll()
-                        .requestMatchers("/api/waitlist/join").permitAll()
+                        // Public API endpoints
+                        .requestMatchers("/api/waitlist/join", "/api/visits/stats", "/api/visits/record").permitAll()
                         .requestMatchers("/api/markers/**").permitAll() // Public product catalog
                         .requestMatchers("/api/categories/**").permitAll() // Public categories
                         .requestMatchers("/api/v1/explorer/**").permitAll() // Public explorer API
                         .requestMatchers("/scanner-api/**").permitAll() // Public scanner API
+                        // Protected API endpoints
                         .requestMatchers("/api/v1/cart/**").authenticated() // Require auth for cart
                         .requestMatchers("/api/v1/orders/**").authenticated() // Require auth for orders
+                        // Swagger/API docs
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
