@@ -1,7 +1,0 @@
-/*
-  Permissions-Policy: camera=*, microphone=*, geolocation=*
-  Access-Control-Allow-Origin: *
-
-/scanner/*
-  Permissions-Policy: camera=*, microphone=*, geolocation=*
-  Access-Control-Allow-Origin: *
