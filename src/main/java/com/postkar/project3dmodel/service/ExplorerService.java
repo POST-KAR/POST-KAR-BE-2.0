@@ -33,7 +33,7 @@ public class ExplorerService {
      */
     public List<ExplorerCategoryResponse> getAllCategories() {
         List<Category> categories = categoryRepository.findAll();
-        
+
         return categories.stream()
                 .map(this::convertToExplorerCategoryResponse)
                 .collect(Collectors.toList());
@@ -66,7 +66,10 @@ public class ExplorerService {
         }
 
         Marker marker = markerOpt.get();
-        Optional<Category> categoryOpt = categoryRepository.findById(marker.getCategoryId());
+        Optional<Category> categoryOpt = Optional.empty();
+        if (marker.getCategoryId() != null) {
+            categoryOpt = categoryRepository.findById(marker.getCategoryId());
+        }
 
         ExplorerSubcategoryDetailResponse response = new ExplorerSubcategoryDetailResponse();
         response.setId(marker.getId());
@@ -84,7 +87,7 @@ public class ExplorerService {
                     .filter(v -> v.getId().equals(marker.getActiveVideoId()))
                     .findFirst()
                     .orElse(null);
-            
+
             if (activeVideo != null) {
                 response.setMediaPreviewUrl(signedUrlService.generateSignedUrl(activeVideo.getVideoUrl()));
                 response.setArAssetUrl(signedUrlService.generateSignedUrl(activeVideo.getVideoUrl()));
@@ -119,7 +122,7 @@ public class ExplorerService {
                     .filter(v -> v.getId().equals(marker.getActiveVideoId()))
                     .findFirst()
                     .orElse(null);
-            
+
             if (activeVideo != null) {
                 response.setArAssetUrl(signedUrlService.generateSignedUrl(activeVideo.getVideoUrl()));
                 response.setFallbackPreviewUrl(signedUrlService.generateSignedUrl(activeVideo.getVideoUrl()));
@@ -138,10 +141,8 @@ public class ExplorerService {
 
         // Search categories
         List<Category> matchingCategories = categoryRepository.findAll().stream()
-                .filter(category -> 
-                    category.getName().toLowerCase().contains(query.toLowerCase()) ||
-                    category.getDescription().toLowerCase().contains(query.toLowerCase())
-                )
+                .filter(category -> category.getName().toLowerCase().contains(query.toLowerCase()) ||
+                        category.getDescription().toLowerCase().contains(query.toLowerCase()))
                 .collect(Collectors.toList());
 
         List<ExplorerCategoryResponse> categoryResponses = matchingCategories.stream()
@@ -150,15 +151,16 @@ public class ExplorerService {
 
         // Search markers (subcategories)
         List<Marker> matchingMarkers = markerRepository.findByIsActiveTrue().stream()
-                .filter(marker ->
-                    marker.getName().toLowerCase().contains(query.toLowerCase()) ||
-                    marker.getDescription().toLowerCase().contains(query.toLowerCase())
-                )
+                .filter(marker -> marker.getName().toLowerCase().contains(query.toLowerCase()) ||
+                        marker.getDescription().toLowerCase().contains(query.toLowerCase()))
                 .collect(Collectors.toList());
 
         List<ExplorerSubcategoryResponse> subcategoryResponses = matchingMarkers.stream()
                 .map(marker -> {
-                    Optional<Category> categoryOpt = categoryRepository.findById(marker.getCategoryId());
+                    Optional<Category> categoryOpt = Optional.empty();
+                    if (marker.getCategoryId() != null) {
+                        categoryOpt = categoryRepository.findById(marker.getCategoryId());
+                    }
                     return convertToExplorerSubcategoryResponse(marker, categoryOpt.orElse(null));
                 })
                 .collect(Collectors.toList());
@@ -190,9 +192,9 @@ public class ExplorerService {
     public void trackAnalytics(ExplorerAnalyticsRequest request) {
         // For now, we can log the analytics or store in a separate collection
         // This can be enhanced later to integrate with existing ReportingService
-        System.out.println("Explorer Analytics: " + request.getEventType() + 
-                          " - Category: " + request.getCategoryId() + 
-                          " - Subcategory: " + request.getSubcategoryId());
+        System.out.println("Explorer Analytics: " + request.getEventType() +
+                " - Category: " + request.getCategoryId() +
+                " - Subcategory: " + request.getSubcategoryId());
     }
 
     // Helper methods
@@ -224,7 +226,7 @@ public class ExplorerService {
         response.setDescription(marker.getDescription());
         response.setThumbnailUrl(signedUrlService.generateSignedUrl(marker.getThumbnailUrl()));
         response.setCategoryId(marker.getCategoryId());
-        
+
         if (category != null) {
             response.setCategoryName(category.getName());
         }

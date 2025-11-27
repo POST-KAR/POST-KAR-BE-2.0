@@ -133,6 +133,131 @@ public class AdminController {
         }
     }
 
+    @Operation(summary = "Upload and Create Marker", description = "Upload files and create a new AR marker in a single request.\n\n"
+            +
+            "This endpoint handles the complete marker creation process:\n" +
+            "1. Upload marker image, video, and optional thumbnail to Cloudflare R2\n" +
+            "2. Automatically create marker record in database with generated URLs\n" +
+            "3. CategoryId is optional - leave empty if you don't want to categorize yet\n\n" +
+            "All files and metadata are processed in one API call.")
+    @PostMapping(value = "/markers/upload", consumes = "multipart/form-data")
+    public ResponseEntity<?> uploadAndCreateMarker(
+            @Parameter(description = "Marker ID (required)", example = "MARKER_001") @RequestParam @NotBlank String markerId,
+
+            @Parameter(description = "Marker name (required)", example = "Lion Marker") @RequestParam @NotBlank String name,
+
+            @Parameter(description = "Description (optional)") @RequestParam(required = false) String description,
+
+            @Parameter(description = "Physical width in meters (optional, default: 0.1)") @RequestParam(required = false) Double physicalWidthMeters,
+
+            @Parameter(description = "Category ID (optional - can be left empty)") @RequestParam(required = false) String categoryId,
+
+            @Parameter(description = "Video name (optional)") @RequestParam(required = false) String videoName,
+
+            @Parameter(description = "Marker image file (PNG/JPG, required)") @RequestParam MultipartFile markerImage,
+
+            @Parameter(description = "Video file (MP4, required)") @RequestParam MultipartFile video,
+
+            @Parameter(description = "Thumbnail image file (PNG/JPG, optional)") @RequestParam(required = false) MultipartFile thumbnail) {
+        try {
+            // Validate marker doesn't already exist
+            if (markerService.markerExists(markerId)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Marker with ID '" + markerId + "' already exists"));
+            }
+
+            // Check if FileUploadService is configured
+            if (!fileUploadService.isConfigured()) {
+                logger.error("FileUploadService is not properly configured");
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(Map.of("error", "File upload service is not configured"));
+            }
+
+            // Determine category name for file organization
+            String categoryName = "markers"; // Default folder name when no category
+            if (categoryId != null && !categoryId.trim().isEmpty()) {
+                var categoryOpt = categoryService.getCategoryById(categoryId.trim());
+                if (categoryOpt.isPresent()) {
+                    categoryName = categoryOpt.get().getName();
+                } else {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Category not found: " + categoryId));
+                }
+            }
+
+            // Upload files to Cloudflare R2
+            String markerImageUrl;
+            String videoUrl;
+            String thumbnailUrl = null;
+
+            try {
+                markerImageUrl = fileUploadService.uploadFileByCategory(markerImage, categoryName, "markers");
+                logger.info("Uploaded marker image for '{}': {}", markerId, markerImageUrl);
+            } catch (Exception e) {
+                logger.error("Failed to upload marker image for '{}'", markerId, e);
+                return ResponseEntity.internalServerError()
+                        .body(Map.of("error", "Failed to upload marker image: " + e.getMessage()));
+            }
+
+            try {
+                videoUrl = fileUploadService.uploadFileByCategory(video, categoryName, "videos");
+                logger.info("Uploaded video for '{}': {}", markerId, videoUrl);
+            } catch (Exception e) {
+                logger.error("Failed to upload video for '{}'", markerId, e);
+                return ResponseEntity.internalServerError()
+                        .body(Map.of("error", "Failed to upload video: " + e.getMessage()));
+            }
+
+            if (thumbnail != null) {
+                try {
+                    thumbnailUrl = fileUploadService.uploadFileByCategory(thumbnail, categoryName, "thumbnails");
+                    logger.info("Uploaded thumbnail for '{}': {}", markerId, thumbnailUrl);
+                } catch (Exception e) {
+                    logger.warn("Failed to upload thumbnail for '{}', using marker image as fallback", markerId, e);
+                    thumbnailUrl = markerImageUrl; // Use marker image as fallback
+                }
+            } else {
+                thumbnailUrl = markerImageUrl; // Use marker image if no thumbnail provided
+            }
+
+            // Create marker entity
+            Marker marker = new Marker();
+            marker.setMarkerId(markerId.trim());
+            marker.setName(name.trim());
+            marker.setDescription(description != null ? description.trim() : "");
+            marker.setPhysicalWidthMeters(physicalWidthMeters != null ? physicalWidthMeters : 0.1);
+            marker.setMarkerImageUrl(markerImageUrl);
+            marker.setThumbnailUrl(thumbnailUrl);
+            marker.setCategoryId(categoryId != null && !categoryId.trim().isEmpty() ? categoryId.trim() : null);
+            marker.setActive(true);
+
+            // Create video entity
+            Video videoEntity = new Video();
+            videoEntity.setId(markerId + "-v1");
+            videoEntity.setName(videoName != null ? videoName.trim() : "Default Video");
+            videoEntity.setVideoUrl(videoUrl);
+            videoEntity.setFormat("mp4");
+            videoEntity.setDefault(true);
+            videoEntity.setVariants(Collections.singletonList("1080p"));
+
+            marker.setVideos(Collections.singletonList(videoEntity));
+            marker.setActiveVideoId(videoEntity.getId());
+
+            // Save marker to MongoDB
+            Marker savedMarker = markerService.saveMarker(marker);
+            logger.info("Successfully created marker '{}' with uploaded files", savedMarker.getMarkerId());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "message", "Marker created successfully",
+                    "marker", savedMarker));
+
+        } catch (Exception e) {
+            logger.error("Failed to upload and create marker: {}", markerId, e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to create marker: " + e.getMessage()));
+        }
+    }
+
     @Operation(summary = "Create New Marker", description = "Create a new AR marker with associated video.\n\n" +
             "This endpoint handles the complete marker creation process:\n" +
             "1. Validate marker data\n" +

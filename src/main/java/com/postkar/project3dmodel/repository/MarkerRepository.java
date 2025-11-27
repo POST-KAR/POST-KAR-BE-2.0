@@ -17,6 +17,7 @@ public interface MarkerRepository extends MongoRepository<Marker, String> {
     Optional<Marker> findByMarkerId(String markerId);
 
     Page<Marker> findByIsActiveTrue(Pageable pageable);
+
     List<Marker> findByIsActiveTrue();
 
     List<Marker> findByLastUpdatedAfter(LocalDateTime since);
