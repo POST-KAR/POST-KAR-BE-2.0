@@ -21,9 +21,6 @@ public class MarkerService {
     @Autowired
     private SignedUrlService signedUrlService;
 
-    @Autowired
-    private ArDatabaseService arDatabaseService;
-
     public Page<Marker> getAllActiveMarkers(Pageable pageable) {
         return markerRepository.findByIsActiveTrue(pageable);
     }
@@ -42,9 +39,8 @@ public class MarkerService {
             marker.setThumbnailUrl(signedUrlService.generateSignedUrl(marker.getThumbnailUrl()));
 
             if (marker.getVideos() != null) {
-                marker.getVideos().forEach(video ->
-                        video.setVideoUrl(signedUrlService.generateSignedUrl(video.getVideoUrl()))
-                );
+                marker.getVideos()
+                        .forEach(video -> video.setVideoUrl(signedUrlService.generateSignedUrl(video.getVideoUrl())));
             }
 
             return Optional.of(marker);
@@ -84,10 +80,6 @@ public class MarkerService {
         }
 
         Marker savedMarker = markerRepository.save(marker);
-
-
-        arDatabaseService.triggerDatabaseRebuild();
-
         return savedMarker;
     }
 
@@ -96,7 +88,6 @@ public class MarkerService {
 
         if (markerOpt.isPresent()) {
             markerRepository.delete(markerOpt.get());
-            arDatabaseService.triggerDatabaseRebuild();
             return true;
         }
 
@@ -115,21 +106,18 @@ public class MarkerService {
             marker.setThumbnailUrl(signedUrlService.generateSignedUrl(marker.getThumbnailUrl()));
 
             if (marker.getVideos() != null) {
-                marker.getVideos().forEach(video ->
-                        video.setVideoUrl(signedUrlService.generateSignedUrl(video.getVideoUrl()))
-                );
+                marker.getVideos()
+                        .forEach(video -> video.setVideoUrl(signedUrlService.generateSignedUrl(video.getVideoUrl())));
             }
         });
-        
+
         return markers;
     }
 
     public List<Marker> searchMarkers(String query) {
         List<Marker> markers = markerRepository.findByIsActiveTrue().stream()
-                .filter(marker ->
-                    marker.getName().toLowerCase().contains(query.toLowerCase()) ||
-                    marker.getDescription().toLowerCase().contains(query.toLowerCase())
-                )
+                .filter(marker -> marker.getName().toLowerCase().contains(query.toLowerCase()) ||
+                        marker.getDescription().toLowerCase().contains(query.toLowerCase()))
                 .toList();
 
         // Apply signed URLs to search results
@@ -138,14 +126,12 @@ public class MarkerService {
             marker.setThumbnailUrl(signedUrlService.generateSignedUrl(marker.getThumbnailUrl()));
 
             if (marker.getVideos() != null) {
-                marker.getVideos().forEach(video ->
-                        video.setVideoUrl(signedUrlService.generateSignedUrl(video.getVideoUrl()))
-                );
+                marker.getVideos()
+                        .forEach(video -> video.setVideoUrl(signedUrlService.generateSignedUrl(video.getVideoUrl())));
             }
         });
-        
+
         return markers;
     }
 
 }
-

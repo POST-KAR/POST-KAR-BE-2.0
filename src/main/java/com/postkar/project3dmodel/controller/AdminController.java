@@ -2,11 +2,9 @@ package com.postkar.project3dmodel.controller;
 
 import com.postkar.project3dmodel.dto.MarkerCreateRequest;
 import com.postkar.project3dmodel.dto.MarkerUpdateRequest;
-import com.postkar.project3dmodel.entity.ArDatabase;
 import com.postkar.project3dmodel.entity.Marker;
 import com.postkar.project3dmodel.entity.Video;
 import com.postkar.project3dmodel.response.UploadResponse;
-import com.postkar.project3dmodel.service.ArDatabaseService;
 import com.postkar.project3dmodel.service.CategoryService;
 import com.postkar.project3dmodel.service.FileUploadService;
 import com.postkar.project3dmodel.service.MarkerService;
@@ -41,35 +39,25 @@ public class AdminController {
     private MarkerService markerService;
 
     @Autowired
-    private ArDatabaseService arDatabaseService;
-
-    @Autowired
     private FileUploadService fileUploadService;
 
     @Autowired
     private CategoryService categoryService;
 
-    @Operation(
-            summary = "Upload Files",
-            description = "Upload marker image, thumbnail, and video files to Cloudflare R2.\n\n" +
-                    "Returns actual R2 URLs that can be used in marker creation requests.\n" +
-                    "All files are uploaded to cloud storage with proper validation.\n" +
-                    "Files are organized by category: {categoryName}/{fileType}/{filename}"
-    )
+    @Operation(summary = "Upload Files", description = "Upload marker image, thumbnail, and video files to Cloudflare R2.\n\n"
+            +
+            "Returns actual R2 URLs that can be used in marker creation requests.\n" +
+            "All files are uploaded to cloud storage with proper validation.\n" +
+            "Files are organized by category: {categoryName}/{fileType}/{filename}")
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFiles(
-            @Parameter(description = "Category ID for organizing files")
-            @RequestParam(required = false) String categoryId,
+            @Parameter(description = "Category ID for organizing files") @RequestParam(required = false) String categoryId,
 
-            @Parameter(description = "Marker image file (PNG/JPG, max 5MB)")
-            @RequestParam(required = false) MultipartFile markerImage,
+            @Parameter(description = "Marker image file (PNG/JPG, max 5MB)") @RequestParam(required = false) MultipartFile markerImage,
 
-            @Parameter(description = "Thumbnail image file (PNG/JPG, max 5MB)")
-            @RequestParam(required = false) MultipartFile thumbnail,
+            @Parameter(description = "Thumbnail image file (PNG/JPG, max 5MB)") @RequestParam(required = false) MultipartFile thumbnail,
 
-            @Parameter(description = "Video file (MP4, max 500MB)")
-            @RequestParam(required = false) MultipartFile video
-    ) {
+            @Parameter(description = "Video file (MP4, max 500MB)") @RequestParam(required = false) MultipartFile video) {
         try {
             if (markerImage == null && thumbnail == null && video == null) {
                 return ResponseEntity.badRequest()
@@ -145,20 +133,14 @@ public class AdminController {
         }
     }
 
-    @Operation(
-            summary = "Create New Marker",
-            description = "Create a new AR marker with associated video.\n\n" +
-                    "This endpoint handles the complete marker creation process:\n" +
-                    "1. Validate marker data\n" +
-                    "2. Create marker record in database\n" +
-                    "3. Trigger AR database rebuild automatically\n\n" +
-                    "All URLs should be obtained from the /upload endpoint first."
-    )
+    @Operation(summary = "Create New Marker", description = "Create a new AR marker with associated video.\n\n" +
+            "This endpoint handles the complete marker creation process:\n" +
+            "1. Validate marker data\n" +
+            "2. Create marker record in database\n\n" +
+            "All URLs should be obtained from the /upload endpoint first.")
     @PostMapping("/markers")
     public ResponseEntity<?> createMarker(
-            @Parameter(description = "Marker creation request")
-            @Valid @RequestBody MarkerCreateRequest request
-    ) {
+            @Parameter(description = "Marker creation request") @Valid @RequestBody MarkerCreateRequest request) {
         try {
             if (request.getMarkerId() == null || request.getMarkerId().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
@@ -184,11 +166,11 @@ public class AdminController {
             marker.setMarkerId(request.getMarkerId().trim());
             marker.setName(request.getName() != null ? request.getName().trim() : request.getMarkerId());
             marker.setDescription(request.getDescription() != null ? request.getDescription().trim() : "");
-            marker.setPhysicalWidthMeters(request.getPhysicalWidthMeters() != null ?
-                    request.getPhysicalWidthMeters() : 0.1);
+            marker.setPhysicalWidthMeters(
+                    request.getPhysicalWidthMeters() != null ? request.getPhysicalWidthMeters() : 0.1);
             marker.setMarkerImageUrl(request.getMarkerImageUrl().trim());
-            marker.setThumbnailUrl(request.getThumbnailUrl() != null ?
-                    request.getThumbnailUrl().trim() : request.getMarkerImageUrl().trim());
+            marker.setThumbnailUrl(request.getThumbnailUrl() != null ? request.getThumbnailUrl().trim()
+                    : request.getMarkerImageUrl().trim());
             marker.setCategoryId(request.getCategoryId());
             marker.setActive(true);
 
@@ -219,20 +201,14 @@ public class AdminController {
         }
     }
 
-    @Operation(
-            summary = "Update Marker",
-            description = "Update an existing marker's properties.\n\n" +
-                    "Can update name, description, active video, or add new videos.\n" +
-                    "Triggers AR database rebuild if marker image changes."
-    )
+    @Operation(summary = "Update Marker", description = "Update an existing marker's properties.\n\n" +
+            "Can update name, description, active video, or add new videos.\n" +
+            "Triggers AR database rebuild if marker image changes.")
     @PutMapping("/markers/{markerId}")
     public ResponseEntity<?> updateMarker(
-            @Parameter(description = "Marker business ID")
-            @PathVariable @NotBlank String markerId,
+            @Parameter(description = "Marker business ID") @PathVariable @NotBlank String markerId,
 
-            @Parameter(description = "Update request")
-            @Valid @RequestBody MarkerUpdateRequest request
-    ) {
+            @Parameter(description = "Update request") @Valid @RequestBody MarkerUpdateRequest request) {
         try {
             Optional<Marker> markerOpt = markerService.getMarkerWithSignedUrls(markerId);
 
@@ -282,17 +258,10 @@ public class AdminController {
         }
     }
 
-    @Operation(
-            summary = "Delete Marker",
-            description = "Delete a marker and trigger database rebuild.\n\n" +
-                    "This will remove the marker from AR detection and rebuild\n" +
-                    "the .imgdb file without this marker."
-    )
+    @Operation(summary = "Delete Marker", description = "Delete a marker from the database.")
     @DeleteMapping("/markers/{markerId}")
     public ResponseEntity<?> deleteMarker(
-            @Parameter(description = "Marker business ID")
-            @PathVariable @NotBlank String markerId
-    ) {
+            @Parameter(description = "Marker business ID") @PathVariable @NotBlank String markerId) {
         try {
             boolean deleted = markerService.deleteMarker(markerId);
 
@@ -312,90 +281,4 @@ public class AdminController {
         }
     }
 
-    @Operation(
-            summary = "Trigger Database Rebuild",
-            description = "Manually trigger AR database (.imgdb) rebuild.\n\n" +
-                    "Normally happens automatically when markers are added/updated,\n" +
-                    "but this allows manual triggering for maintenance."
-    )
-    @PostMapping("/rebuild-database")
-    public ResponseEntity<?> triggerDatabaseRebuild() {
-        try {
-            arDatabaseService.triggerDatabaseRebuild();
-            logger.info("Database rebuild triggered manually");
-
-            return ResponseEntity.ok()
-                    .body(Map.of("message", "Database rebuild triggered successfully"));
-
-        } catch (Exception e) {
-            logger.error("Failed to trigger database rebuild", e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to trigger rebuild: " + e.getMessage()));
-        }
-    }
-
-    @Operation(
-            summary = "Get Database Build Status",
-            description = "Check the status of the latest database build.\n\n" +
-                    "Returns build status: 'building', 'ready', or 'failed'\n" +
-                    "and build log for debugging."
-    )
-    @GetMapping("/database-status")
-    public ResponseEntity<?> getDatabaseStatus() {
-        try {
-            Optional<ArDatabase> dbOpt = arDatabaseService.getCurrentDatabase();
-
-            if (dbOpt.isPresent()) {
-                return ResponseEntity.ok(dbOpt.get());
-            } else {
-                return ResponseEntity.ok()
-                        .body(Map.of("message", "No database build found"));
-            }
-
-        } catch (Exception e) {
-            logger.error("Failed to get database status", e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to get database status: " + e.getMessage()));
-        }
-    }
-
-    @Operation(
-            summary = "Get All Database Builds",
-            description = "Get list of all database builds with their status"
-    )
-    @GetMapping("/database-builds")
-    public ResponseEntity<?> getAllDatabaseBuilds() {
-        try {
-            return ResponseEntity.ok()
-                    .body(Map.of("message", "Feature not implemented yet"));
-
-        } catch (Exception e) {
-            logger.error("Failed to get database builds", e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to get database builds: " + e.getMessage()));
-        }
-    }
-
-    @Operation(
-            summary = "Publish Database",
-            description = "Publish a specific database build to make it active"
-    )
-    @PostMapping("/database/{databaseId}/publish")
-    public ResponseEntity<?> publishDatabase(
-            @Parameter(description = "Database ID to publish")
-            @PathVariable @NotBlank String databaseId
-    ) {
-        try {
-            arDatabaseService.publishDatabase(databaseId);
-            logger.info("Published database: {}", databaseId);
-
-            return ResponseEntity.ok()
-                    .body(Map.of("message", "Database published successfully"));
-
-        } catch (Exception e) {
-            logger.error("Failed to publish database: {}", databaseId, e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to publish database: " + e.getMessage()));
-        }
-    }
 }

@@ -8,21 +8,25 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Document(collection = "ar_databases")
+@Document(collection = "addresses")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ArDatabase {
+public class Address {
     @Id
     private String id;
-
-    private String version;
-
+    
+    private String userId;
+    private String fullName;
+    private String phone;
+    private String line1;
+    private String line2;
+    private String city;
+    private String state;
+    private String postalCode;
+    private String country;
+    private Boolean isDefault = false;
+    
     private LocalDateTime createdAt;
-    private LocalDateTime publishedAt;
-
-    private boolean isActive;
-
-    private String buildStatus;
-    private String buildLog;
+    private LocalDateTime updatedAt;
 }

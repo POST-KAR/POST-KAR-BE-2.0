@@ -28,18 +28,18 @@ public class JwtTokenProvider {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String generateAccessToken(String mobileNumber) {
+    public String generateAccessToken(String email) {
         return Jwts.builder()
-                .subject(mobileNumber)
+                .subject(email)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenValidity))
                 .signWith(key)
                 .compact();
     }
 
-    public String generateRefreshToken(String mobileNumber) {
+    public String generateRefreshToken(String email) {
         return Jwts.builder()
-                .subject(mobileNumber)
+                .subject(email)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshTokenValidity))
                 .signWith(key)
@@ -55,7 +55,7 @@ public class JwtTokenProvider {
         }
     }
 
-    public String extractMobileNumber(String token) {
+    public String extractEmail(String token) {
         return Jwts.parser()
                 .verifyWith(key)
                 .build()

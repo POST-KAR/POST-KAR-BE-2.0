@@ -31,28 +31,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain chain) throws ServletException, IOException {
+            HttpServletResponse response,
+            FilterChain chain) throws ServletException, IOException {
         try {
             String header = request.getHeader("Authorization");
             String token = null;
-            String mobileNumber = null;
+            String email = null;
 
             if (header != null && header.startsWith("Bearer ")) {
                 token = header.substring(7);
-                mobileNumber = jwtTokenProvider.extractMobileNumber(token);
+                email = jwtTokenProvider.extractEmail(token);
             }
 
-            if (mobileNumber != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = customUserDetailsService.loadUserByUsername(mobileNumber);
+            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
                 if (jwtTokenProvider.validateToken(token)) {
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails,
+                            null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    logger.debug("Authenticated user: {}", mobileNumber);
+                    logger.debug("Authenticated user: {}", email);
                 } else {
-                    logger.warn("Invalid JWT token for mobile: {}", mobileNumber);
+                    logger.warn("Invalid JWT token for email: {}", email);
                 }
             }
         } catch (Exception e) {

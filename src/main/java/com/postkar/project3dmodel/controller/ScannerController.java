@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/scanner-api")
+@RequestMapping("/api/scanner")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "Scanner", description = "AR scanner APIs for web integration")

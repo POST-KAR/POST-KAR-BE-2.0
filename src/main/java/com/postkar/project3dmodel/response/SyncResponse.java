@@ -9,8 +9,6 @@ import java.util.List;
 public class SyncResponse {
     private boolean updateRequired;
     private String latestVersion;
-    private String imgdbUrl;
-    private String imgdbChecksum;
     private List<Marker> updatedMarkers;
     private List<String> deletedMarkerIds;
     private LocalDateTime syncTime;

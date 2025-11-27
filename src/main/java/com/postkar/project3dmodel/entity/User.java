@@ -21,8 +21,8 @@ public class User {
     @Id
     private ObjectId id;
 
-    private String phoneNumber; // Primary identifier - mobile number
-    private boolean mobileVerified;
+    private String email; // Primary identifier - email address
+    private boolean emailVerified;
     private boolean isActive;
 
     private String otp;
@@ -37,8 +37,8 @@ public class User {
 
     // Registration status enum
     public enum RegistrationStatus {
-        MOBILE_PENDING,
-        MOBILE_VERIFIED,
+        EMAIL_PENDING,
+        EMAIL_VERIFIED,
         COMPLETED
     }
 

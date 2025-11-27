@@ -113,6 +113,12 @@
 			<artifactId>httpcore5</artifactId>
 			<version>5.2.5</version>
 		</dependency>
+		<!-- AWS SDK URL Connection HTTP Client for R2 compatibility -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>url-connection-client</artifactId>
+			<version>2.26.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>

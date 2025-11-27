@@ -40,7 +40,7 @@ public class Marker {
 
     @Nullable
     private String notes;
-    
+
     // E-commerce fields
     private BigDecimal price;
     private String currency = "INR";

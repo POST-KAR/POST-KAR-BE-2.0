@@ -13,7 +13,7 @@ public class Video {
     private String id;
     private String name;
     private String description;
-    
+
     private String videoUrl;
     private List<String> variants;
     private String format;
@@ -21,7 +21,7 @@ public class Video {
     private Integer durationSeconds;
     private Integer width;
     private Integer height;
-    
+
     private String schedule;
     private boolean isDefault;
 }
