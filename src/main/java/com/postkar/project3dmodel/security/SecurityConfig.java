@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/categories/**").permitAll() // Public categories
                         .requestMatchers("/api/v1/explorer/**").permitAll() // Public explorer API
                         .requestMatchers("/scanner-api/**").permitAll() // Public scanner API
+                        .requestMatchers("/api/hero/**").permitAll() // Public Hero API
                         // Protected API endpoints
                         .requestMatchers("/api/v1/cart/**").authenticated() // Require auth for cart
                         .requestMatchers("/api/v1/orders/**").authenticated() // Require auth for orders
