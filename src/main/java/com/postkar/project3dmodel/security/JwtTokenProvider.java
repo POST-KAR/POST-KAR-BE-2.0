@@ -17,7 +17,6 @@ public class JwtTokenProvider {
 
     private SecretKey key;
 
-
     @Value("${app.jwt.access-token-validity}")
     private long accessTokenValidity;
 

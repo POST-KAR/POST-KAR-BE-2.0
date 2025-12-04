@@ -17,8 +17,6 @@ public class ArDatabase {
     private String id;
 
     private String version;
-    private String imgdbUrl;
-    private String imgdbChecksum;
 
     private LocalDateTime createdAt;
     private LocalDateTime publishedAt;

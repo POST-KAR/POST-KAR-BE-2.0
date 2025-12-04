@@ -18,8 +18,10 @@ import java.util.Base64;
 public class AssetService {
     private final S3Client s3Client;
     private final S3Presigner presigner;
-    @Value("${aws.s3.bucket}")
+    @Value("${cloudflare.r2.bucket}")
     private String bucket;
+    @Value("${cloudflare.r2.account-id}")
+    private String accountId;
     @Value("${app.signed-url-expiry-minutes}")
     private int expiryMinutes;
 
@@ -31,7 +33,8 @@ public class AssetService {
     public String uploadFile(MultipartFile file, String key) throws IOException {
         s3Client.putObject(PutObjectRequest.builder().bucket(bucket).key(key).build(),
                 RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
-        return "https://" + bucket + ".s3.amazonaws.com/" + key;
+        // Return R2 public URL format
+        return String.format("https://%s.%s.r2.cloudflarestorage.com/%s", bucket, accountId, key);
     }
 
     public String generateSignedUrl(String key) {

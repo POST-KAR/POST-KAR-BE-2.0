@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -22,23 +23,14 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    @Operation(summary = "FOR Slide/Window 1: Send OTP to Email",
-            description = "Send verification OTP to the provided email")
+    @Operation(summary = "Send OTP to Email", description = "Send verification OTP to the provided email address for registration or login")
     @PostMapping("/send-otp")
     public ResponseEntity<RegistrationResponse> sendOtpToEmail(@Valid @RequestBody EmailRequest req) {
         try {
-            System.out.println("=== SEND OTP REQUEST STARTED ===");
-            System.out.println("Email: " + req.getEmail());
-
             RegistrationResponse response = authService.sendOtpToEmail(req);
-
-            System.out.println("OTP sent successfully to: " + req.getEmail());
-            System.out.println("=== SEND OTP REQUEST SUCCESSFUL ===");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("=== SEND OTP REQUEST FAILED ===");
-            System.err.println("Error for email: " + req.getEmail() + " - " + e.getMessage());
             e.printStackTrace();
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -47,47 +39,28 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "FOR Slide/Window 2: Verify OTP",
-            description = "Verify the OTP sent to the email address")
+    @Operation(summary = "Verify OTP and Login/Register", description = "Verify the OTP sent to the email address. Completes registration for new users or logs in existing users.")
     @PostMapping("/verify-otp")
-    public ResponseEntity<RegistrationResponse> verifyOTP(@Valid @RequestBody OTPVerificationRequest req) {
+    public ResponseEntity<?> verifyOTP(@Valid @RequestBody EmailOTPVerificationRequest req) {
         try {
-            System.out.println("=== VERIFY OTP REQUEST STARTED ===");
-            System.out.println("Email: " + req.getEmail() + ", OTP: " + req.getOtp());
-
-            RegistrationResponse response = authService.verifyOTP(req);
-
-            System.out.println("OTP verified successfully for: " + req.getEmail());
-            System.out.println("=== VERIFY OTP REQUEST SUCCESSFUL ===");
+            Map<String, Object> response = authService.verifyOTP(req);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("=== VERIFY OTP REQUEST FAILED ===");
-            System.err.println("Error for email: " + req.getEmail() + " - " + e.getMessage());
-
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new RegistrationResponse("OTP verification failed: " + e.getMessage(),
-                            req.getEmail(), false));
+                    .body(Map.of("message", "OTP verification failed: " + e.getMessage(),
+                            "success", false));
         }
     }
 
-    @Operation(summary = "FOR Slide/Window 2: Resend OTP",
-            description = "Resend verification OTP to the email address")
+    @Operation(summary = "Resend OTP", description = "Resend verification OTP to the email address")
     @PostMapping("/resend-otp")
     public ResponseEntity<RegistrationResponse> resendOtp(@Valid @RequestBody EmailRequest req) {
         try {
-            System.out.println("=== RESEND OTP REQUEST STARTED ===");
-            System.out.println("Email: " + req.getEmail());
-
             RegistrationResponse response = authService.resendOtp(req);
-
-            System.out.println("OTP resent successfully to: " + req.getEmail());
-            System.out.println("=== RESEND OTP REQUEST SUCCESSFUL ===");
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("=== RESEND OTP REQUEST FAILED ===");
-            System.err.println("Error for email: " + req.getEmail() + " - " + e.getMessage());
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new RegistrationResponse("Failed to resend OTP: " + e.getMessage(),
@@ -95,100 +68,70 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "FOR Slide/Window 3: Set Username and Password - COMPLETES REGISTRATION",
-            description = "Set username and password for the account. This step completes the registration and creates the user account. User can now login.")
-    @PostMapping("/set-credentials")
-    public ResponseEntity<RegistrationResponse> setCredentials(@Valid @RequestBody CredentialsRequest req) {
-        try {
-            System.out.println("=== SET CREDENTIALS REQUEST STARTED ===");
-            System.out.println("Email: " + req.getEmail() + ", Username: " + req.getUsername());
-
-            RegistrationResponse response = authService.setCredentials(req);
-
-            System.out.println("User registered successfully for: " + req.getEmail());
-            System.out.println("=== SET CREDENTIALS REQUEST SUCCESSFUL ===");
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            System.err.println("=== SET CREDENTIALS REQUEST FAILED ===");
-            System.err.println("Error for email: " + req.getEmail() + " - " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new RegistrationResponse("Failed to set credentials: " + e.getMessage(),
-                            req.getEmail(), false));
-        }
-    }
-
-    @Operation(summary = "FOR Slide/Window 4: Set Profile Information (OPTIONAL)",
-            description = "Complete profile with personal information. This step is optional - users can login without completing this. Name, DOB, Phone number are all optional. Use DOB format as yyyy-MM-dd")
-    @PostMapping("/set-info")
-    public ResponseEntity<RegistrationResponse> setInfo(@Valid @RequestBody PersonalInfoRequest req) {
-        try {
-            System.out.println("=== COMPLETE PROFILE REQUEST STARTED ===");
-            System.out.println("Email: " + req.getEmail() + ", Name: " + req.getName());
-
-            RegistrationResponse response = authService.setInfo(req);
-
-            System.out.println("Profile completed successfully for: " + req.getEmail());
-            System.out.println("=== COMPLETE PROFILE REQUEST SUCCESSFUL ===");
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            System.err.println("=== COMPLETE PROFILE REQUEST FAILED ===");
-            System.err.println("Error for email: " + req.getEmail() + " - " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(new RegistrationResponse("Failed to complete profile: " + e.getMessage(),
-                            req.getEmail(), false));
-        }
-    }
-
-    @Operation(summary = "User Login",
-            description = "Authenticate user with email and password, returns JWT tokens. Users can login after completing step 3 (setting credentials).")
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
-        try {
-            System.out.println("=== LOGIN REQUEST STARTED ===");
-            System.out.println("Email: " + req.getEmail());
-
-            Map<String, Object> response = authService.login(req);
-
-            System.out.println("Login successful for: " + req.getEmail());
-            System.out.println("=== LOGIN REQUEST SUCCESSFUL ===");
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            System.err.println("=== LOGIN REQUEST FAILED ===");
-            System.err.println("Error for email: " + req.getEmail() + " - " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Login failed: " + e.getMessage(),
-                            "success", false));
-        }
-    }
-
-    @Operation(summary = "Refresh Token",
-            description = "Generate new access token using refresh token")
+    @Operation(summary = "Refresh Token", description = "Generate new access token using refresh token")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/refresh-token")
     public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         try {
-            System.out.println("=== REFRESH TOKEN REQUEST STARTED ===");
-            System.out.println("Email: " + request.getEmail());
-
             String newAccessToken = authService.refreshToken(request);
             Map<String, String> response = Map.of("accessToken", newAccessToken);
 
-            System.out.println("Token refreshed successfully for: " + request.getEmail());
-            System.out.println("=== REFRESH TOKEN REQUEST SUCCESSFUL ===");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Token refresh failed: " + e.getMessage(),
+                            "success", false));
+        }
+    }
+
+    @Operation(summary = "Get User Profile", description = "Get the current authenticated user's profile information")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/profile")
+    public ResponseEntity<?> getUserProfile(Authentication auth) {
+        try {
+            String email = auth.getName();
+            Map<String, Object> response = authService.getUserProfile(email);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("=== REFRESH TOKEN REQUEST FAILED ===");
-            System.err.println("Error for email: " + request.getEmail() + " - " + e.getMessage());
-
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Token refresh failed: " + e.getMessage(),
+                    .body(Map.of("message", "Failed to get profile: " + e.getMessage(),
+                            "success", false));
+        }
+    }
+
+    @Operation(summary = "Update User Profile", description = "Update the current authenticated user's profile information")
+    @SecurityRequirement(name = "bearerAuth")
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateUserProfile(
+            @Valid @RequestBody Map<String, String> updates,
+            Authentication auth) {
+        try {
+            String email = auth.getName();
+            Map<String, Object> response = authService.updateUserProfile(email, updates);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Failed to update profile: " + e.getMessage(),
+                            "success", false));
+        }
+    }
+
+    @Operation(summary = "Logout User", description = "Logout the current authenticated user")
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(Authentication auth) {
+        try {
+            String email = auth.getName();
+            authService.logout(email);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Logged out successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Logout failed: " + e.getMessage(),
                             "success", false));
         }
     }

@@ -11,6 +11,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -18,6 +19,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -32,29 +34,30 @@ public class FileUploadService {
 
     private static final Logger logger = LoggerFactory.getLogger(FileUploadService.class);
 
-    @Value("${aws.s3.bucket}")
+    @Value("${cloudflare.r2.bucket}")
     private String bucketName;
 
-    @Value("${aws.s3.region}")
-    private String region;
+    @Value("${cloudflare.r2.account-id}")
+    private String accountId;
 
-    @Value("${aws.access.key}")
+    @Value("${cloudflare.r2.access-key-id}")
     private String accessKeyId;
 
-    @Value("${aws.secret.key}")
+    @Value("${cloudflare.r2.secret-access-key}")
     private String secretAccessKey;
 
-    @Value("${aws.s3.base-url:}")
-    private String baseUrl; // Optional: custom CloudFront URL
+    @Value("${cloudflare.r2.endpoint:}")
+    private String customEndpoint;
+
+    @Value("${cloudflare.r2.public-url:}")
+    private String publicUrl; // Optional: custom R2 public domain
 
     private S3Client s3Client;
 
     private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList(
-            "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"
-    );
+            "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp");
     private static final List<String> ALLOWED_VIDEO_TYPES = Arrays.asList(
-            "video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo"
-    );
+            "video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo");
 
     private static final int DOWNLOAD_TIMEOUT_SECONDS = 30;
     private static final int MAX_DOWNLOAD_RETRIES = 3;
@@ -63,20 +66,30 @@ public class FileUploadService {
     @PostConstruct
     public void initializeS3Client() {
         try {
-            AwsBasicCredentials awsCreds = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+            AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+
+            // Cloudflare R2 endpoint format: https://<account-id>.r2.cloudflarestorage.com
+            String endpoint = customEndpoint != null && !customEndpoint.isEmpty()
+                    ? customEndpoint
+                    : String.format("https://%s.r2.cloudflarestorage.com", accountId);
 
             this.s3Client = S3Client.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(StaticCredentialsProvider.create(awsCreds))
+                    .endpointOverride(java.net.URI.create(endpoint))
+                    .region(Region.of("auto")) // R2 uses "auto" region
+                    .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                    .httpClient(UrlConnectionHttpClient.builder().build()) // Use URL Connection HTTP Client for better
+                                                                           // R2 compatibility
+                    .serviceConfiguration(S3Configuration.builder()
+                            .pathStyleAccessEnabled(false) // R2 uses virtual-hosted-style
+                            .build())
                     .build();
 
-            logger.info("S3 client initialized successfully for region: {}", region);
+            logger.info("Cloudflare R2 client initialized successfully for account: {}", accountId);
         } catch (Exception e) {
-            logger.error("Failed to initialize S3 client", e);
-            throw new RuntimeException("S3 configuration error", e);
+            logger.error("Failed to initialize R2 client", e);
+            throw new RuntimeException("R2 configuration error", e);
         }
     }
-
 
     public String uploadFile(MultipartFile file, String folder) throws IOException {
         if (file == null || file.isEmpty()) {
@@ -94,34 +107,31 @@ public class FileUploadService {
                     .contentType(file.getContentType())
                     .contentLength(file.getSize())
                     .metadata(java.util.Map.of(
-                            "original-filename", file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown",
+                            "original-filename",
+                            file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown",
                             "upload-timestamp", LocalDateTime.now().toString(),
-                            "folder", folder
-                    ))
+                            "folder", folder))
                     .build();
 
             PutObjectResponse response = s3Client.putObject(putObjectRequest,
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
             String fileUrl = getFileUrl(key);
-            logger.info("File uploaded successfully: {} -> {}", file.getOriginalFilename(), fileUrl);
+            logger.info("File uploaded successfully to R2: {} -> {}", file.getOriginalFilename(), fileUrl);
             return fileUrl;
 
         } catch (S3Exception e) {
-            logger.error("Failed to upload file to S3: {}", e.awsErrorDetails().errorMessage(), e);
-            throw new RuntimeException("Failed to upload file to S3: " + e.awsErrorDetails().errorMessage(), e);
+            logger.error("Failed to upload file to R2: {}", e.awsErrorDetails().errorMessage(), e);
+            throw new RuntimeException("Failed to upload file to R2: " + e.awsErrorDetails().errorMessage(), e);
         }
     }
-
 
     public String uploadFileByCategory(MultipartFile file, String categoryName, String fileType) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be empty");
         }
 
-
         validateFileTypeByCategory(file, fileType);
-
 
         String key = generateCategoryBasedFileKey(file.getOriginalFilename(), categoryName, fileType);
 
@@ -132,26 +142,26 @@ public class FileUploadService {
                     .contentType(file.getContentType())
                     .contentLength(file.getSize())
                     .metadata(java.util.Map.of(
-                            "original-filename", file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown",
+                            "original-filename",
+                            file.getOriginalFilename() != null ? file.getOriginalFilename() : "unknown",
                             "upload-timestamp", LocalDateTime.now().toString(),
                             "category", categoryName,
-                            "file-type", fileType
-                    ))
+                            "file-type", fileType))
                     .build();
 
             PutObjectResponse response = s3Client.putObject(putObjectRequest,
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
             String fileUrl = getFileUrl(key);
-            logger.info("File uploaded successfully with category structure: {} -> {}", file.getOriginalFilename(), fileUrl);
+            logger.info("File uploaded successfully to R2 with category structure: {} -> {}",
+                    file.getOriginalFilename(), fileUrl);
             return fileUrl;
 
         } catch (S3Exception e) {
-            logger.error("Failed to upload file to S3: {}", e.awsErrorDetails().errorMessage(), e);
-            throw new RuntimeException("Failed to upload file to S3: " + e.awsErrorDetails().errorMessage(), e);
+            logger.error("Failed to upload file to R2: {}", e.awsErrorDetails().errorMessage(), e);
+            throw new RuntimeException("Failed to upload file to R2: " + e.awsErrorDetails().errorMessage(), e);
         }
     }
-
 
     public String uploadFile(File file, String s3Key) throws IOException {
         if (file == null || !file.exists()) {
@@ -175,12 +185,12 @@ public class FileUploadService {
                     RequestBody.fromFile(file));
 
             String fileUrl = getFileUrl(s3Key);
-            logger.info("File uploaded successfully: {} -> {}", file.getName(), fileUrl);
+            logger.info("File uploaded successfully to R2: {} -> {}", file.getName(), fileUrl);
             return fileUrl;
 
         } catch (S3Exception e) {
-            logger.error("Failed to upload file to S3: {}", e.awsErrorDetails().errorMessage(), e);
-            throw new RuntimeException("Failed to upload file to S3: " + e.awsErrorDetails().errorMessage(), e);
+            logger.error("Failed to upload file to R2: {}", e.awsErrorDetails().errorMessage(), e);
+            throw new RuntimeException("Failed to upload file to R2: " + e.awsErrorDetails().errorMessage(), e);
         }
     }
 
@@ -194,7 +204,8 @@ public class FileUploadService {
 
         for (int attempt = 1; attempt <= MAX_DOWNLOAD_RETRIES; attempt++) {
             try {
-                logger.info("Downloading file (attempt {}): {} -> {}", attempt, fileUrl, destinationFile.getAbsolutePath());
+                logger.info("Downloading file (attempt {}): {} -> {}", attempt, fileUrl,
+                        destinationFile.getAbsolutePath());
 
                 File parentDir = destinationFile.getParentFile();
                 if (parentDir != null && !parentDir.exists()) {
@@ -215,7 +226,7 @@ public class FileUploadService {
                 long downloadedBytes = 0;
 
                 try (FileOutputStream fos = new FileOutputStream(destinationFile);
-                     BufferedOutputStream bos = new BufferedOutputStream(fos, 32768)) { // Larger buffer
+                        BufferedOutputStream bos = new BufferedOutputStream(fos, 32768)) { // Larger buffer
 
                     byte[] buffer = new byte[32768]; // 32KB buffer
                     int bytesRead;
@@ -234,8 +245,9 @@ public class FileUploadService {
 
                 long actualSize = destinationFile.length();
                 if (expectedLength > 0 && actualSize != expectedLength) {
-                    throw new IOException(String.format("Downloaded file size mismatch. Expected: %d bytes, Actual: %d bytes",
-                            expectedLength, actualSize));
+                    throw new IOException(
+                            String.format("Downloaded file size mismatch. Expected: %d bytes, Actual: %d bytes",
+                                    expectedLength, actualSize));
                 }
 
                 if (actualSize == 0) {
@@ -247,8 +259,8 @@ public class FileUploadService {
                 return;
 
             } catch (S3Exception e) {
-                lastException = new IOException("S3 error during download: " + e.awsErrorDetails().errorMessage(), e);
-                logger.warn("S3 error on attempt {} for {}: {}", attempt, fileUrl, e.awsErrorDetails().errorMessage());
+                lastException = new IOException("R2 error during download: " + e.awsErrorDetails().errorMessage(), e);
+                logger.warn("R2 error on attempt {} for {}: {}", attempt, fileUrl, e.awsErrorDetails().errorMessage());
 
                 if (e.statusCode() == 404 || e.statusCode() == 403) {
                     throw lastException;
@@ -291,20 +303,24 @@ public class FileUploadService {
         return String.format("%s/%s/%s_%s.%s", folder, timestamp, uniqueId, sanitizedName, extension);
     }
 
-
     public String generateCategoryBasedFileKey(String originalFilename, String categoryName, String fileType) {
         String extension = getFileExtension(originalFilename);
         String sanitizedName = sanitizeFilename(originalFilename);
-        String sanitizedCategory = sanitizeFilename(categoryName);
-        
-        return String.format("%s/%s/%s.%s", sanitizedCategory, fileType, sanitizedName, extension);
+
+        // Simple flat structure: {fileType}/{filename}.{ext}
+        // The bucket name is handled separately by R2 configuration
+        return String.format("%s/%s.%s", fileType, sanitizedName, extension);
     }
 
     private String getFileUrl(String key) {
-        if (baseUrl != null && !baseUrl.isEmpty()) {
-            return baseUrl.endsWith("/") ? baseUrl + key : baseUrl + "/" + key;
+        // If custom public URL is configured (e.g., custom domain), use it
+        if (publicUrl != null && !publicUrl.isEmpty()) {
+            return publicUrl.endsWith("/") ? publicUrl + key : publicUrl + "/" + key;
         } else {
-            return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, key);
+            // Default R2 public URL format:
+            // https://<bucket>.<account-id>.r2.cloudflarestorage.com/<key>
+            // Note: This requires the bucket to have public access enabled in R2 dashboard
+            return String.format("https://%s.%s.r2.cloudflarestorage.com/%s", bucketName, accountId, key);
         }
     }
 
@@ -400,10 +416,10 @@ public class FileUploadService {
     }
 
     private String sanitizeFilename(String filename) {
-        if (filename == null) return "file";
+        if (filename == null)
+            return "file";
 
-        String name = filename.contains(".") ?
-                filename.substring(0, filename.lastIndexOf(".")) : filename;
+        String name = filename.contains(".") ? filename.substring(0, filename.lastIndexOf(".")) : filename;
 
         name = name.replaceAll("[\\\\/]", "");
 
@@ -437,16 +453,27 @@ public class FileUploadService {
         return false;
     }
 
-    private String extractKeyFromUrl(String url) {
-        if (url == null || url.trim().isEmpty()) return null;
+    public String extractKeyFromUrl(String url) {
+        if (url == null || url.trim().isEmpty())
+            return null;
 
         try {
-            if (baseUrl != null && !baseUrl.isEmpty() && url.startsWith(baseUrl)) {
-                String baseUrlClean = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+            // Handle custom public URL
+            if (publicUrl != null && !publicUrl.isEmpty() && url.startsWith(publicUrl)) {
+                String baseUrlClean = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1)
+                        : publicUrl;
                 return url.substring(baseUrlClean.length() + 1);
-            } else if (url.contains(".amazonaws.com/")) {
+            }
+            // Handle R2 cloudflarestorage.com URLs
+            else if (url.contains(".r2.cloudflarestorage.com/")) {
+                return url.substring(url.indexOf(".r2.cloudflarestorage.com/") + 26);
+            }
+            // Legacy S3 URL support (for migration)
+            else if (url.contains(".amazonaws.com/")) {
                 return url.substring(url.indexOf(".amazonaws.com/") + 15);
-            } else if (url.startsWith("s3://")) {
+            }
+            // Handle s3:// or r2:// protocol
+            else if (url.startsWith("s3://") || url.startsWith("r2://")) {
                 String withoutProtocol = url.substring(5);
                 if (withoutProtocol.contains("/")) {
                     return withoutProtocol.substring(withoutProtocol.indexOf("/") + 1);

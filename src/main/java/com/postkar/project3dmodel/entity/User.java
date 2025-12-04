@@ -21,17 +21,9 @@ public class User {
     @Id
     private ObjectId id;
 
-    private String name;
-    private String email;
-    private String username;
-    private String password;
-    private String phoneNumber;
-    @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private LocalDate dateOfBirth;
-
+    private String email; // Primary identifier - email address
     private boolean emailVerified;
-    private boolean credentialsSet;
-    private boolean profileCompleted;
+    private boolean isActive;
 
     private String otp;
     private LocalDateTime otpGeneratedAt;
@@ -47,7 +39,6 @@ public class User {
     public enum RegistrationStatus {
         EMAIL_PENDING,
         EMAIL_VERIFIED,
-        CREDENTIALS_SET,
         COMPLETED
     }
 

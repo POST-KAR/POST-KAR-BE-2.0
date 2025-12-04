@@ -9,6 +9,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -21,40 +22,52 @@ public class SignedUrlService {
 
     private static final Logger logger = LoggerFactory.getLogger(SignedUrlService.class);
 
-    @Value("${aws.s3.bucket}")
+    @Value("${cloudflare.r2.bucket}")
     private String bucketName;
 
-    @Value("${aws.s3.region}")
-    private String region;
+    @Value("${cloudflare.r2.account-id}")
+    private String accountId;
 
-    @Value("${aws.access.key}")
+    @Value("${cloudflare.r2.access-key-id}")
     private String accessKeyId;
 
-    @Value("${aws.secret.key}")
+    @Value("${cloudflare.r2.secret-access-key}")
     private String secretAccessKey;
+
+    @Value("${cloudflare.r2.endpoint:}")
+    private String customEndpoint;
 
     @Value("${signed.url.expiry.hours:24}")
     private int expiryHours;
 
-    @Value("${aws.s3.base-url:}")
-    private String baseUrl;
+    @Value("${cloudflare.r2.public-url:}")
+    private String publicUrl;
 
     private S3Presigner s3Presigner;
 
     @PostConstruct
     public void initializePresigner() {
         try {
-            AwsBasicCredentials awsCreds = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+            AwsBasicCredentials credentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+
+            // Cloudflare R2 endpoint format: https://<account-id>.r2.cloudflarestorage.com
+            String endpoint = customEndpoint != null && !customEndpoint.isEmpty() 
+                ? customEndpoint 
+                : String.format("https://%s.r2.cloudflarestorage.com", accountId);
 
             this.s3Presigner = S3Presigner.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(StaticCredentialsProvider.create(awsCreds))
+                    .endpointOverride(java.net.URI.create(endpoint))
+                    .region(Region.of("auto")) // R2 uses "auto" region
+                    .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                    .serviceConfiguration(S3Configuration.builder()
+                            .pathStyleAccessEnabled(false) // R2 uses virtual-hosted-style
+                            .build())
                     .build();
 
-            logger.info("S3 Presigner initialized successfully for region: {}", region);
+            logger.info("Cloudflare R2 Presigner initialized successfully for account: {}", accountId);
         } catch (Exception e) {
-            logger.error("Failed to initialize S3 presigner", e);
-            throw new RuntimeException("S3 presigner configuration error", e);
+            logger.error("Failed to initialize R2 presigner", e);
+            throw new RuntimeException("R2 presigner configuration error", e);
         }
     }
 
@@ -70,8 +83,8 @@ public class SignedUrlService {
         }
 
         if (fileUrl.startsWith("http")) {
-            if (baseUrl != null && !baseUrl.isEmpty() && fileUrl.startsWith(baseUrl)) {
-                return fileUrl; // CloudFront URLs typically don't need signing
+            if (publicUrl != null && !publicUrl.isEmpty() && fileUrl.startsWith(publicUrl)) {
+                return fileUrl; // Custom public domain URLs typically don't need signing
             }
 
             if (fileUrl.contains("?")) {
@@ -80,15 +93,15 @@ public class SignedUrlService {
         }
 
         try {
-            String s3Key = extractS3KeyFromUrl(fileUrl);
-            if (s3Key == null) {
-                logger.warn("Cannot extract S3 key from URL: {}", fileUrl);
+            String r2Key = extractS3KeyFromUrl(fileUrl);
+            if (r2Key == null) {
+                logger.warn("Cannot extract R2 key from URL: {}", fileUrl);
                 return fileUrl;
             }
 
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(s3Key)
+                    .key(r2Key)
                     .build();
 
             GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
@@ -99,7 +112,7 @@ public class SignedUrlService {
             PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
             String signedUrl = presignedRequest.url().toString();
 
-            logger.debug("Generated signed URL for key: {} (expires in {} hours)", s3Key, hours);
+            logger.debug("Generated signed URL for R2 key: {} (expires in {} hours)", r2Key, hours);
             return signedUrl;
 
         } catch (Exception e) {
@@ -109,19 +122,19 @@ public class SignedUrlService {
     }
 
 
-    public String generateSignedUrlFromKey(String s3Key) {
-        return generateSignedUrlFromKey(s3Key, expiryHours);
+    public String generateSignedUrlFromKey(String r2Key) {
+        return generateSignedUrlFromKey(r2Key, expiryHours);
     }
 
-    public String generateSignedUrlFromKey(String s3Key, int hours) {
-        if (s3Key == null || s3Key.trim().isEmpty()) {
+    public String generateSignedUrlFromKey(String r2Key, int hours) {
+        if (r2Key == null || r2Key.trim().isEmpty()) {
             return null;
         }
 
         try {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(s3Key)
+                    .key(r2Key)
                     .build();
 
             GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
@@ -132,11 +145,11 @@ public class SignedUrlService {
             PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
             String signedUrl = presignedRequest.url().toString();
 
-            logger.debug("Generated signed URL for key: {} (expires in {} hours)", s3Key, hours);
+            logger.debug("Generated signed URL for R2 key: {} (expires in {} hours)", r2Key, hours);
             return signedUrl;
 
         } catch (Exception e) {
-            logger.error("Failed to generate signed URL for key: {}", s3Key, e);
+            logger.error("Failed to generate signed URL for R2 key: {}", r2Key, e);
             return null;
         }
     }
@@ -148,16 +161,24 @@ public class SignedUrlService {
         }
 
         try {
-            if (baseUrl != null && !baseUrl.isEmpty() && url.startsWith(baseUrl)) {
-                String baseUrlClean = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+            // Handle custom public URL
+            if (publicUrl != null && !publicUrl.isEmpty() && url.startsWith(publicUrl)) {
+                String baseUrlClean = publicUrl.endsWith("/") ? publicUrl.substring(0, publicUrl.length() - 1) : publicUrl;
                 return url.substring(baseUrlClean.length() + 1);
             }
 
+            // Handle R2 cloudflarestorage.com URLs
+            if (url.contains(".r2.cloudflarestorage.com/")) {
+                return url.substring(url.indexOf(".r2.cloudflarestorage.com/") + 26);
+            }
+
+            // Legacy S3 URL support (for migration)
             if (url.contains(".amazonaws.com/")) {
                 return url.substring(url.indexOf(".amazonaws.com/") + 15);
             }
 
-            if (url.startsWith("s3://")) {
+            // Handle s3:// or r2:// protocol
+            if (url.startsWith("s3://") || url.startsWith("r2://")) {
                 String withoutProtocol = url.substring(5);
                 if (withoutProtocol.contains("/")) {
                     String bucketAndKey = withoutProtocol.substring(withoutProtocol.indexOf("/") + 1);
@@ -165,12 +186,13 @@ public class SignedUrlService {
                 }
             }
 
-            if (!url.startsWith("http") && !url.startsWith("s3://")) {
+            // If it's just a key without protocol or domain
+            if (!url.startsWith("http") && !url.startsWith("s3://") && !url.startsWith("r2://")) {
                 return url;
             }
 
         } catch (Exception e) {
-            logger.error("Error extracting S3 key from URL: {}", url, e);
+            logger.error("Error extracting R2 key from URL: {}", url, e);
         }
 
         return null;

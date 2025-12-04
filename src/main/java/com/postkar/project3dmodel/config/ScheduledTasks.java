@@ -12,10 +12,10 @@ public class ScheduledTasks {
     private AuthService authService;
 
     @Scheduled(fixedRate = 3600000)
-    public void cleanupExpiredRegistrations() {
+    public void cleanupExpiredOtps() {
         try {
-            authService.cleanupExpiredRegistrations();
-            System.out.println("Cleanup completed: Expired temp registrations removed");
+            authService.cleanupExpiredOtps();
+            System.out.println("Cleanup completed: Expired OTPs removed");
         } catch (Exception e) {
             System.err.println("Error during cleanup: " + e.getMessage());
         }

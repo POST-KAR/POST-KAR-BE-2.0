@@ -20,15 +20,18 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
-        String password = user.getPassword();
-        if (password == null) {
-            password = "";
-        }
+        // Since we're using OTP-based authentication, we don't need a password
+        // But Spring Security requires one, so we'll use a placeholder
+        String password = "N/A";
 
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
                 .password(password)
                 .authorities(Collections.emptyList())
+                .accountExpired(!user.isActive())
+                .accountLocked(!user.isEmailVerified())
+                .credentialsExpired(false)
+                .disabled(!user.isActive())
                 .build();
     }
 }
