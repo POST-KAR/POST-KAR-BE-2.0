@@ -50,8 +50,9 @@ public class SecurityConfig {
                         .requestMatchers("/scanner-api/**").permitAll() // Public scanner API
                         .requestMatchers("/api/hero/**").permitAll() // Public Hero API
                         // Protected API endpoints
-                        .requestMatchers("/api/v1/cart/**").authenticated() // Require auth for cart
-                        .requestMatchers("/api/v1/orders/**").authenticated() // Require auth for orders
+                        .requestMatchers("/api/cart/**").authenticated() // Require auth for cart
+                        .requestMatchers("/api/orders/**").authenticated()// Require auth for orders
+                        .requestMatchers("/api/addresses/**").authenticated()
                         // Swagger/API docs
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**").permitAll()
                         // Protect all other API endpoints

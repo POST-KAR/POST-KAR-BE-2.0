@@ -25,8 +25,8 @@ public class HeroImageService {
     private static final String HERO_CATEGORY = "hero"; // Simplified from "hero-posters"
     private static final String FILE_TYPE = "hero"; // Changed from "image" to "hero" for clarity
 
-    public List<HeroImage> getRandomHeroImages() {
-        log.info("Fetching random {} hero images", HERO_IMAGES_TO_RETURN);
+    public List<HeroImage> getAllActiveHeroImages() {
+        log.info("Fetching all hero images");
 
         try {
             List<HeroImage> allImages = heroImageRepository.findAllActive();
@@ -36,11 +36,8 @@ public class HeroImageService {
                 return Collections.emptyList();
             }
 
-            // Shuffle and take first 10
-            Collections.shuffle(allImages);
-            return allImages.stream()
-                    .limit(HERO_IMAGES_TO_RETURN)
-                    .toList();
+            // Return all active images
+            return allImages;
         } catch (Exception e) {
             log.error("Error fetching hero images", e);
             throw new RuntimeException("Failed to fetch hero images", e);

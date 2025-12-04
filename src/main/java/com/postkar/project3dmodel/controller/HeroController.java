@@ -32,13 +32,13 @@ public class HeroController {
 
     private final HeroImageService heroImageService;
 
-    @Operation(summary = "Get Random Hero Images", description = "Get 10 random active hero images for display (public endpoint)")
+    @Operation(summary = "Get All Hero Images", description = "Get all active hero images for display (public endpoint)")
     @GetMapping
     public ResponseEntity<Map<String, Object>> getHeroImages() {
-        log.info("Getting random hero images");
+        log.info("Getting all hero images");
 
         try {
-            List<HeroImage> images = heroImageService.getRandomHeroImages();
+            List<HeroImage> images = heroImageService.getAllActiveHeroImages();
 
             List<Map<String, Object>> heroData = images.stream()
                     .map(img -> {
