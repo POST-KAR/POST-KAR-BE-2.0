@@ -151,11 +151,11 @@ public class AuthService {
 
     // Refresh access token method
     public String refreshToken(RefreshTokenRequest req) {
-        User user = userRepo.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // Find user by refresh token
+        User user = userRepo.findByRefreshToken(req.getRefreshToken())
+                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
 
         if (!jwtProvider.validateToken(req.getRefreshToken()) ||
-                !req.getRefreshToken().equals(user.getRefreshToken()) ||
                 user.getRefreshTokenExpiry().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Invalid or expired refresh token");
         }
@@ -220,6 +220,8 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setJwtToken(null);
+        user.setRefreshToken(null);
+        user.setRefreshTokenExpiry(null);
         user.setUpdatedAt(LocalDateTime.now());
         userRepo.save(user);
     }

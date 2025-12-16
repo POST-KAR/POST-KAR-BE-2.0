@@ -33,6 +33,15 @@ public class SecurityConfig {
     @Autowired
     private CustomUserDetailsService customUserDetailsService;
 
+    @Autowired
+    private CustomOAuth2UserService customOAuth2UserService;
+
+    @Autowired
+    private OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+
+    @Autowired
+    private OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -42,6 +51,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(req -> req
                         // Auth endpoints
                         .requestMatchers("/auth/**", "/api/auth/**").permitAll()
+                        // OAuth2 endpoints
+                        .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         // Public API endpoints
                         .requestMatchers("/api/waitlist/join", "/api/visits/stats", "/api/visits/record").permitAll()
                         .requestMatchers("/api/markers/**").permitAll() // Public product catalog
@@ -49,29 +60,36 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/explorer/**").permitAll() // Public explorer API
                         .requestMatchers("/scanner-api/**").permitAll() // Public scanner API
                         .requestMatchers("/api/hero/**").permitAll() // Public Hero API
+                        .requestMatchers("/api/freeverse-markers/**").permitAll()
                         // Protected API endpoints
                         .requestMatchers("/api/cart/**").authenticated() // Require auth for cart
                         .requestMatchers("/api/orders/**").authenticated()// Require auth for orders
                         .requestMatchers("/api/addresses/**").authenticated()
                         // Swagger/API docs
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/api-docs/**")
+                        .permitAll()
                         // Protect all other API endpoints
                         .requestMatchers("/api/**").authenticated()
                         // Allow all non-API requests (SPA routes, static resources)
-                        .anyRequest().permitAll()
-                )
+                        .anyRequest().permitAll())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, ex) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"" + ex.getMessage() + "\"}");
+                            response.getWriter()
+                                    .write("{\"error\":\"Unauthorized\",\"message\":\"" + ex.getMessage() + "\"}");
                         })
                         .accessDeniedHandler((request, response, ex) -> {
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"error\":\"Access Denied\",\"message\":\"" + ex.getMessage() + "\"}");
-                        })
-                )
+                            response.getWriter()
+                                    .write("{\"error\":\"Access Denied\",\"message\":\"" + ex.getMessage() + "\"}");
+                        }))
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService))
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -88,6 +106,7 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
     @Bean
     public AuthenticationManager authenticationManager() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();

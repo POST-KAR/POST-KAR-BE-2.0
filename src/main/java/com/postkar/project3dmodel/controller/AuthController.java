@@ -135,4 +135,12 @@ public class AuthController {
                             "success", false));
         }
     }
+
+    @Operation(summary = "Test Endpoint", description = "Test endpoint to verify API connectivity")
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, String>> test() {
+        return ResponseEntity.ok(Map.of(
+                "message", "Auth endpoint is working!",
+                "timestamp", java.time.LocalDateTime.now().toString()));
+    }
 }

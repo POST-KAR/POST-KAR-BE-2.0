@@ -2,11 +2,13 @@ package com.postkar.project3dmodel.controller;
 
 import com.postkar.project3dmodel.dto.MarkerCreateRequest;
 import com.postkar.project3dmodel.dto.MarkerUpdateRequest;
+import com.postkar.project3dmodel.entity.FreeversMarker;
 import com.postkar.project3dmodel.entity.Marker;
 import com.postkar.project3dmodel.entity.Video;
 import com.postkar.project3dmodel.response.UploadResponse;
 import com.postkar.project3dmodel.service.CategoryService;
 import com.postkar.project3dmodel.service.FileUploadService;
+import com.postkar.project3dmodel.service.FreeversMarkerService;
 import com.postkar.project3dmodel.service.MarkerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,6 +39,9 @@ public class AdminController {
 
     @Autowired
     private MarkerService markerService;
+
+    @Autowired
+    private FreeversMarkerService freeversMarkerService;
 
     @Autowired
     private FileUploadService fileUploadService;
@@ -403,6 +408,132 @@ public class AdminController {
             logger.error("Failed to delete marker: {}", markerId, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Failed to delete marker: " + e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "Upload and Create Freeverse Marker", description = "Upload files and create a new freeverse AR marker in a single request.\n\n"
+            +
+            "This endpoint handles the complete freeverse marker creation process:\n" +
+            "1. Upload marker image, video, and optional thumbnail to Cloudflare R2\n" +
+            "2. Automatically create freeverse marker record in database with generated URLs\n" +
+            "3. CategoryId is optional - leave empty if you don't want to categorize yet\n\n" +
+            "All files and metadata are processed in one API call.")
+    @PostMapping(value = "/freeverse-markers/upload", consumes = "multipart/form-data")
+    public ResponseEntity<?> uploadAndCreateFreeversMarker(
+            @Parameter(description = "Marker ID (required)", example = "FREEVERSE_001") @RequestParam @NotBlank String markerId,
+
+            @Parameter(description = "Marker name (required)", example = "Nature Freeverse Marker") @RequestParam @NotBlank String name,
+
+            @Parameter(description = "Description (optional)") @RequestParam(required = false) String description,
+
+            @Parameter(description = "Physical width in meters (optional, default: 0.1)") @RequestParam(required = false) Double physicalWidthMeters,
+
+            @Parameter(description = "Category ID (optional - can be left empty)") @RequestParam(required = false) String categoryId,
+
+            @Parameter(description = "Video name (optional)") @RequestParam(required = false) String videoName,
+
+            @Parameter(description = "Marker image file (PNG/JPG, required)") @RequestParam MultipartFile markerImage,
+
+            @Parameter(description = "Video file (MP4, required)") @RequestParam MultipartFile video,
+
+            @Parameter(description = "Thumbnail image file (PNG/JPG, optional)") @RequestParam(required = false) MultipartFile thumbnail) {
+        try {
+            // Validate freeverse marker doesn't already exist
+            if (freeversMarkerService.freeversMarkerExists(markerId)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Freeverse marker with ID '" + markerId + "' already exists"));
+            }
+
+            // Check if FileUploadService is configured
+            if (!fileUploadService.isConfigured()) {
+                logger.error("FileUploadService is not properly configured");
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body(Map.of("error", "File upload service is not configured"));
+            }
+
+            // Determine category name for file organization
+            String categoryName = "freeverse-markers"; // Default folder name for freeverse markers
+            if (categoryId != null && !categoryId.trim().isEmpty()) {
+                var categoryOpt = categoryService.getCategoryById(categoryId.trim());
+                if (categoryOpt.isPresent()) {
+                    categoryName = "freeverse-" + categoryOpt.get().getName();
+                } else {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "Category not found: " + categoryId));
+                }
+            }
+
+            // Upload files to Cloudflare R2
+            String markerImageUrl;
+            String videoUrl;
+            String thumbnailUrl = null;
+
+            try {
+                markerImageUrl = fileUploadService.uploadFileByCategory(markerImage, categoryName, "markers");
+                logger.info("Uploaded freeverse marker image for '{}': {}", markerId, markerImageUrl);
+            } catch (Exception e) {
+                logger.error("Failed to upload freeverse marker image for '{}'", markerId, e);
+                return ResponseEntity.internalServerError()
+                        .body(Map.of("error", "Failed to upload marker image: " + e.getMessage()));
+            }
+
+            try {
+                videoUrl = fileUploadService.uploadFileByCategory(video, categoryName, "videos");
+                logger.info("Uploaded freeverse video for '{}': {}", markerId, videoUrl);
+            } catch (Exception e) {
+                logger.error("Failed to upload freeverse video for '{}'", markerId, e);
+                return ResponseEntity.internalServerError()
+                        .body(Map.of("error", "Failed to upload video: " + e.getMessage()));
+            }
+
+            if (thumbnail != null) {
+                try {
+                    thumbnailUrl = fileUploadService.uploadFileByCategory(thumbnail, categoryName, "thumbnails");
+                    logger.info("Uploaded freeverse thumbnail for '{}': {}", markerId, thumbnailUrl);
+                } catch (Exception e) {
+                    logger.warn("Failed to upload freeverse thumbnail for '{}', using marker image as fallback",
+                            markerId, e);
+                    thumbnailUrl = markerImageUrl; // Use marker image as fallback
+                }
+            } else {
+                thumbnailUrl = markerImageUrl; // Use marker image if no thumbnail provided
+            }
+
+            // Create freeverse marker entity
+            FreeversMarker marker = new FreeversMarker();
+            marker.setMarkerId(markerId.trim());
+            marker.setName(name.trim());
+            marker.setDescription(description != null ? description.trim() : "");
+            marker.setPhysicalWidthMeters(physicalWidthMeters != null ? physicalWidthMeters : 0.1);
+            marker.setMarkerImageUrl(markerImageUrl);
+            marker.setThumbnailUrl(thumbnailUrl);
+            marker.setCategoryId(categoryId != null && !categoryId.trim().isEmpty() ? categoryId.trim() : null);
+            marker.setActive(true);
+
+            // Create video entity
+            Video videoEntity = new Video();
+            videoEntity.setId(markerId + "-v1");
+            videoEntity.setName(videoName != null ? videoName.trim() : "Default Video");
+            videoEntity.setVideoUrl(videoUrl);
+            videoEntity.setFormat("mp4");
+            videoEntity.setDefault(true);
+            videoEntity.setVariants(Collections.singletonList("1080p"));
+
+            marker.setVideos(Collections.singletonList(videoEntity));
+            marker.setActiveVideoId(videoEntity.getId());
+
+            // Save freeverse marker to MongoDB
+            FreeversMarker savedMarker = freeversMarkerService.saveFreeversMarker(marker);
+            logger.info("Successfully created freeverse marker '{}' with uploaded files", savedMarker.getMarkerId());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "message", "Freeverse marker created successfully",
+                    "marker", savedMarker));
+
+        } catch (Exception e) {
+            logger.error("Failed to upload and create freeverse marker: {}", markerId, e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to create freeverse marker: " + e.getMessage()));
         }
     }
 

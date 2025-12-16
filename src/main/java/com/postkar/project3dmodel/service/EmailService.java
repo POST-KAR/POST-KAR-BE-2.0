@@ -28,6 +28,8 @@ public class EmailService {
      */
     public boolean sendOtp(String email, String otp) {
         try {
+            logger.info("Attempting to send OTP to: {}", email);
+
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
@@ -38,16 +40,19 @@ public class EmailService {
             String htmlContent = buildOtpEmailTemplate(otp);
             helper.setText(htmlContent, true);
 
+            logger.info("Sending email through SMTP server...");
             mailSender.send(message);
             logger.info("OTP email sent successfully to: {}", email);
             return true;
 
         } catch (MessagingException e) {
-            logger.error("Error sending OTP email to: {}", email, e);
-            return false;
+            logger.error("MessagingException sending OTP email to: {}. Error: {}", email, e.getMessage());
+            logger.error("Full stack trace:", e);
+            throw new RuntimeException("Failed to send OTP. Please try again.", e);
         } catch (Exception e) {
-            logger.error("Unexpected error sending OTP email to: {}", email, e);
-            return false;
+            logger.error("Unexpected error sending OTP email to: {}. Error: {}", email, e.getMessage());
+            logger.error("Full stack trace:", e);
+            throw new RuntimeException("Failed to send OTP. Please try again.", e);
         }
     }
 
